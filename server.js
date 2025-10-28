@@ -1,29 +1,64 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const twilio = require('twilio');
 const OpenAI = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize services
+// Initialize Express app
 const app = express();
+
+// Initialize services
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+// Set up view engine (for HTML templates)
+app.set('view engine', 'ejs');
+app.set('views', './views');
 
 // Middleware
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cookieParser());
+app.use(express.static('public')); // Serve CSS and images
 
-// Health check endpoint
-// Serve dashboard
-app.get('/dashboard', (req, res) => {
-  res.sendFile(__dirname + '/dashboard.html');
+// Session middleware (for login)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    httpOnly: true
+  }
+}));
+
+// Import routes
+const initAuthRoutes = require('./routes/auth');
+const initDashboardRoutes = require('./routes/dashboard');
+
+// Use routes
+app.use('/', initAuthRoutes(supabase));
+app.use('/', initDashboardRoutes(supabase, twilioClient));
+
+// Root route - redirect to dashboard or login
+app.get('/', (req, res) => {
+  if (req.session.landlordId) {
+    res.redirect('/dashboard');
+  } else {
+    res.redirect('/login');
+  }
 });
 
-
-// WhatsApp webhook - receives messages
+// WhatsApp webhook - receives messages from tenants
 app.post('/webhook/whatsapp', async (req, res) => {
   try {
     const incomingMessage = req.body.Body;
@@ -33,7 +68,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     console.log('From:', senderPhone);
     console.log('Message:', incomingMessage);
     
-    // Look up tenant by phone
+    // Look up tenant
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select(`
@@ -52,53 +87,44 @@ app.post('/webhook/whatsapp', async (req, res) => {
     
     console.log('✅ Tenant found:', tenant.name);
     
-    // Save incoming message
-    await supabase.from('messages').insert({
-      tenant_id: tenant.id,
-      direction: 'incoming',
-      message_body: incomingMessage
-    });
-    
-    // Generate AI response
-    const aiResponse = await generateAIResponse(incomingMessage, tenant);
+    // Get AI response
+    const aiResponse = await generateAIResponse(incomingMessage, tenant, tenant.properties);
     
     console.log('🤖 AI Response:', aiResponse.message);
     console.log('📊 Category:', aiResponse.category);
     console.log('⚠️  Needs attention:', aiResponse.needsAttention);
     
-    // Save AI response
-    await supabase.from('messages').insert({
+    // Save message to database
+    await supabase.from('messages').insert([{
       tenant_id: tenant.id,
-      direction: 'outgoing',
-      message_body: aiResponse.message,
+      direction: 'incoming',
+      message_body: incomingMessage,
       category: aiResponse.category,
       ai_response: aiResponse.message,
       needs_landlord_attention: aiResponse.needsAttention
-    });
+    }]);
     
-    // If urgent, notify landlord
+    // If urgent, notify landlord via WhatsApp
     if (aiResponse.needsAttention) {
-      await notifyLandlord(tenant, incomingMessage);
+      await notifyLandlord(tenant, incomingMessage, tenant.properties);
     }
     
-    // Send response to tenant
+    // Send response back to tenant
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(aiResponse.message);
     res.type('text/xml').send(twiml.toString());
     
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Webhook error:', error);
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message('Disculpa, hubo un error. Por favor intenta de nuevo.');
     res.type('text/xml').send(twiml.toString());
   }
 });
 
-// Generate AI response based on tenant message
-async function generateAIResponse(message, tenant) {
-  const property = tenant.properties;
-  
-  const prompt = `Eres un asistente virtual para inquilinos en México. Responde en español de manera amigable y profesional.
+// Generate AI response function
+async function generateAIResponse(message, tenant, property) {
+  const prompt = `Eres un asistente virtual para caseros en México. Responde al inquilino de manera útil y profesional.
 
 INFORMACIÓN DEL INQUILINO:
 - Nombre: ${tenant.name}
@@ -111,18 +137,23 @@ INFORMACIÓN DEL INQUILINO:
 MENSAJE DEL INQUILINO:
 "${message}"
 
-INSTRUCCIONES:
-1. Responde de manera útil y amigable
-2. Si es sobre mantenimiento urgente (fuga, incendio, emergencia) → marca como URGENTE
-3. Si es sobre mantenimiento normal → marca como MANTENIMIENTO
-4. Si es sobre pagos → marca como PAGO
-5. Si es pregunta general → marca como CONSULTA
+INSTRUCCIONES IMPORTANTES:
+1. SÉ PROACTIVO Y ÚTIL - Da soluciones e instrucciones paso a paso
+2. RESUELVE DIRECTAMENTE - Si puedes responder sin involucrar al casero, hazlo
+3. DA INSTRUCCIONES CLARAS - Explica QUÉ hacer y CÓMO hacerlo
+4. USA EJEMPLOS - Si hablas de pagos, da ejemplos con números reales
+
+CATEGORÍAS Y CUÁNDO INVOLUCRAR AL CASERO:
+- URGENTE (needsAttention: true): Fugas, emergencias, seguridad
+- MANTENIMIENTO (needsAttention: true si necesita profesional): Reparaciones
+- PAGO (needsAttention: false excepto prórroga): Dudas sobre pagos
+- CONSULTA (needsAttention: false): Información general
 
 Responde en formato JSON:
 {
-  "message": "tu respuesta aquí (máximo 300 caracteres para WhatsApp)",
+  "message": "tu respuesta ÚTIL aquí (máximo 400 caracteres, da instrucciones claras)",
   "category": "URGENTE o MANTENIMIENTO o PAGO o CONSULTA",
-  "needsAttention": true si requiere atención del casero, false si no
+  "needsAttention": true solo si REALMENTE necesita al casero, false si puedes ayudar directamente
 }`;
 
   const completion = await openai.chat.completions.create({
@@ -136,14 +167,8 @@ Responde en formato JSON:
   return response;
 }
 
-// Notify landlord of urgent issues
-async function notifyLandlord(tenant, tenantMessage) {
-  const property = tenant.properties;
-  const twilioClient = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-  );
-  
+// Notify landlord function
+async function notifyLandlord(tenant, tenantMessage, property) {
   const landlordMessage = `🚨 ATENCIÓN REQUERIDA
 
 Inquilino: ${tenant.name}
@@ -151,7 +176,7 @@ Propiedad: ${property.address}
 
 Mensaje: "${tenantMessage}"
 
-Por favor responde directamente al inquilino.`;
+Por favor responde directamente al inquilino: ${tenant.phone}`;
   
   try {
     await twilioClient.messages.create({
@@ -164,101 +189,76 @@ Por favor responde directamente al inquilino.`;
     console.error('❌ Failed to notify landlord:', error);
   }
 }
-// Dashboard API - Get all messages
-app.get('/api/messages', async (req, res) => {
+
+// Daily recap function (we'll set this up with a cron job later)
+async function sendDailyRecap() {
   try {
-    const { data: messages, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        tenants (
-          name,
-          phone,
-          properties (
-            address,
-            landlord_name
-          )
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    res.json({ success: true, messages });
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Dashboard API - Get urgent messages only
-app.get('/api/messages/urgent', async (req, res) => {
-  try {
-    const { data: messages, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        tenants (
-          name,
-          phone,
-          properties (
-            address,
-            landlord_name
-          )
-        )
-      `)
-      .eq('needs_landlord_attention', true)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-
-    res.json({ success: true, messages });
-  } catch (error) {
-    console.error('Error fetching urgent messages:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Dashboard API - Get stats
-app.get('/api/stats', async (req, res) => {
-  try {
-    const { data: totalMessages } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact', head: true });
+    // Get all landlords
+    const { data: landlords } = await supabase
+      .from('landlords')
+      .select('*');
     
-    const { data: urgentMessages } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('needs_landlord_attention', true);
-    
-    const { data: properties } = await supabase
-      .from('properties')
-      .select('id', { count: 'exact', head: true });
+    for (const landlord of landlords) {
+      // Get messages from last 24 hours for this landlord's properties
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const { data: properties } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('landlord_id', landlord.id);
+      
+      const propertyIds = properties.map(p => p.id);
+      
+      const { data: tenants } = await supabase
+        .from('tenants')
+        .select('id')
+        .in('property_id', propertyIds);
+      
+      const tenantIds = tenants.map(t => t.id);
+      
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('*')
+        .in('tenant_id', tenantIds)
+        .gte('created_at', yesterday.toISOString());
+      
+      if (messages && messages.length > 0) {
+        const urgentCount = messages.filter(m => m.needs_landlord_attention).length;
+        const totalCount = messages.length;
+        
+        const recap = `📊 RESUMEN DIARIO
 
-    const { data: tenants } = await supabase
-      .from('tenants')
-      .select('id', { count: 'exact', head: true });
+Total de mensajes: ${totalCount}
+Requieren atención: ${urgentCount}
+Resueltos por AI: ${totalCount - urgentCount}
 
-    res.json({
-      success: true,
-      stats: {
-        totalMessages: totalMessages || 0,
-        urgentMessages: urgentMessages || 0,
-        properties: properties || 0,
-        tenants: tenants || 0
+Ve los detalles en tu dashboard: ${process.env.RAILWAY_URL || 'tu-url.railway.app'}`;
+        
+        await twilioClient.messages.create({
+          from: process.env.TWILIO_WHATSAPP_NUMBER,
+          to: `whatsapp:${landlord.phone}`,
+          body: recap
+        });
+        
+        console.log(`📲 Daily recap sent to ${landlord.name}`);
       }
-    });
+    }
   } catch (error) {
-    console.error('Error fetching stats:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Error sending daily recap:', error);
   }
-  
+}
+
+// Schedule daily recap at 8 PM Mexico City time
+// We'll add node-cron for this
+const cron = require('node-cron');
+cron.schedule('0 20 * * *', sendDailyRecap, {
+  timezone: "America/Mexico_City"
 });
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n✅ Server running on port ${PORT}`);
-  console.log('💬 Ready to receive WhatsApp messages!\n');
+  console.log('💬 Dashboard ready!\n');
 });

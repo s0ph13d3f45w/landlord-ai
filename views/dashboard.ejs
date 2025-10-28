@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Landlord AI</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>🏠 Landlord AI</h1>
+      <nav>
+        <a href="/dashboard" class="active">Dashboard</a>
+        <a href="/dashboard/properties">Properties</a>
+        <a href="/logout">Logout</a>
+      </nav>
+      <div class="sidebar-footer">
+        <p><%= landlordName %></p>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="dashboard-header">
+        <h2>Messages</h2>
+        <div class="stats">
+          <div class="stat-box">
+            <span class="stat-number"><%= properties.length %></span>
+            <span class="stat-label">Properties</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number"><%= tenants.length %></span>
+            <span class="stat-label">Tenants</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number"><%= messages.length %></span>
+            <span class="stat-label">Messages</span>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Add Tenant Button -->
+      <div class="action-bar">
+        <button onclick="showAddTenantModal()" class="btn-primary">+ Add Tenant</button>
+      </div>
+      
+      <!-- Messages List -->
+      <div class="messages-container">
+        <% if (messages.length === 0) { %>
+          <div class="empty-state">
+            <p>No messages yet. Add a tenant to get started!</p>
+          </div>
+        <% } else { %>
+          <% messages.forEach(msg => { %>
+            <div class="message-card <%= msg.needs_landlord_attention ? 'urgent' : '' %>">
+              <div class="message-header">
+                <div>
+                  <strong><%= msg.tenants.name %></strong>
+                  <span class="message-property"><%= msg.tenants.properties.address %></span>
+                </div>
+                <div class="message-meta">
+                  <span class="message-category <%= msg.category %>"><%= msg.category %></span>
+                  <span class="message-time"><%= new Date(msg.created_at).toLocaleString() %></span>
+                </div>
+              </div>
+              <div class="message-body">
+                <p><strong>Tenant:</strong> <%= msg.message_body %></p>
+                <% if (msg.ai_response) { %>
+                  <p><strong>AI:</strong> <%= msg.ai_response %></p>
+                <% } %>
+              </div>
+              <% if (msg.needs_landlord_attention) { %>
+                <div class="message-actions">
+                  <button onclick="replyToTenant('<%= msg.tenants.phone %>', '<%= msg.tenants.name %>')" class="btn-reply">Reply</button>
+                </div>
+              <% } %>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add Tenant Modal -->
+  <div id="addTenantModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Add New Tenant</h2>
+      <form action="/dashboard/tenants/add" method="POST">
+        <input type="text" name="name" placeholder="Tenant Name" required>
+        <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
+        <select name="property_id" required>
+          <option value="">Select Property</option>
+          <% properties.forEach(prop => { %>
+            <option value="<%= prop.id %>"><%= prop.address %></option>
+          <% }); %>
+        </select>
+        <input type="date" name="move_in_date">
+        <button type="submit" class="btn-primary">Add Tenant</button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Reply Modal -->
+  <div id="replyModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeReplyModal()">&times;</span>
+      <h2>Reply to <span id="replyTenantName"></span></h2>
+      <textarea id="replyMessage" placeholder="Type your message..." rows="4"></textarea>
+      <button onclick="sendReply()" class="btn-primary">Send via WhatsApp</button>
+    </div>
+  </div>
+  
+  <script>
+    let currentTenantPhone = '';
+    
+    function showAddTenantModal() {
+      document.getElementById('addTenantModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+      document.getElementById('addTenantModal').style.display = 'none';
+    }
+    
+    function replyToTenant(phone, name) {
+      currentTenantPhone = phone;
+      document.getElementById('replyTenantName').textContent = name;
+      document.getElementById('replyModal').style.display = 'block';
+    }
+    
+    function closeReplyModal() {
+      document.getElementById('replyModal').style.display = 'none';
+      document.getElementById('replyMessage').value = '';
+    }
+    
+    async function sendReply() {
+      const message = document.getElementById('replyMessage').value;
+      if (!message) return alert('Please type a message');
+      
+      const response = await fetch('/dashboard/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_phone: currentTenantPhone, message })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        alert('Message sent!');
+        closeReplyModal();
+      } else {
+        alert('Error sending message: ' + result.error);
+      }
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
