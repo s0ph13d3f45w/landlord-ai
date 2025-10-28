@@ -44,10 +44,11 @@ app.use(session({
 // Import routes
 const initAuthRoutes = require('./routes/auth');
 const initDashboardRoutes = require('./routes/dashboard');
-
+const initPasswordResetRoutes = require('./routes/password-reset');
 // Use routes
 app.use('/', initAuthRoutes(supabase));
 app.use('/', initDashboardRoutes(supabase, twilioClient));
+app.use('/', initPasswordResetRoutes(supabase));
 
 // Root route - redirect to dashboard or login
 app.get('/', (req, res) => {

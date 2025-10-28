@@ -463,3 +463,14 @@
       grid-template-columns: 1fr;
     }
   }
+
+  /* Success Message */
+.success-message {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    text-align: center;
+    border: 1px solid #a5d6a7;
+  }
