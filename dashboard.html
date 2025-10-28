@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord AI - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .messages-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 2rem;
+        }
+
+        .messages-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .messages-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .message-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .message-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .message-card.urgent {
+            border-left: 4px solid #ef4444;
+            background: #fef2f2;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .tenant-info {
+            flex: 1;
+        }
+
+        .tenant-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .property-address {
+            color: #666;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .message-meta {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .category-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .category-urgent {
+            background: #ef4444;
+            color: white;
+        }
+
+        .category-mantenimiento {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .category-pago {
+            background: #10b981;
+            color: white;
+        }
+
+        .category-consulta {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .timestamp {
+            color: #999;
+            font-size: 0.875rem;
+        }
+
+        .message-content {
+            color: #333;
+            line-height: 1.6;
+            padding: 1rem;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        .direction-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .refresh-btn {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🏠 Landlord AI Dashboard</h1>
+            <p>Monitor tenant messages and urgent issues</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid" id="stats">
+            <div class="stat-card">
+                <h3>Total Messages</h3>
+                <div class="number" id="total-messages">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Urgent Messages</h3>
+                <div class="number" style="color: #ef4444;" id="urgent-messages">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Properties</h3>
+                <div class="number" id="properties">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Tenants</h3>
+                <div class="number" id="tenants">-</div>
+            </div>
+        </div>
+
+        <div class="messages-section">
+            <div class="messages-header">
+                <h2>Recent Messages</h2>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" onclick="filterMessages('all')">All</button>
+                        <button class="filter-btn" onclick="filterMessages('urgent')">Urgent Only</button>
+                    </div>
+                    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+                </div>
+            </div>
+            <div id="messages" class="loading">Loading messages...</div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = 'all';
+        let allMessages = [];
+
+        async function loadData() {
+            await loadStats();
+            await loadMessages();
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-messages').textContent = data.stats.totalMessages;
+                    document.getElementById('urgent-messages').textContent = data.stats.urgentMessages;
+                    document.getElementById('properties').textContent = data.stats.properties;
+                    document.getElementById('tenants').textContent = data.stats.tenants;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadMessages() {
+            try {
+                const endpoint = currentFilter === 'urgent' ? '/api/messages/urgent' : '/api/messages';
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                if (data.success) {
+                    allMessages = data.messages;
+                    displayMessages(allMessages);
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                document.getElementById('messages').innerHTML = '<p style="color: red;">Error loading messages</p>';
+            }
+        }
+
+        function displayMessages(messages) {
+            const container = document.getElementById('messages');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No messages yet</p>';
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                const tenant = msg.tenants;
+                const property = tenant?.properties;
+                const isUrgent = msg.needs_landlord_attention;
+                const date = new Date(msg.created_at);
+                
+                return `
+                    <div class="message-card ${isUrgent ? 'urgent' : ''}">
+                        <div class="message-header">
+                            <div class="tenant-info">
+                                <div class="tenant-name">${tenant?.name || 'Unknown Tenant'}</div>
+                                <div class="property-address">${property?.address || 'Unknown Property'}</div>
+                            </div>
+                            <div class="message-meta">
+                                ${msg.category ? `<span class="category-badge category-${msg.category.toLowerCase()}">${msg.category}</span>` : ''}
+                                <span class="timestamp">${formatDate(date)}</span>
+                            </div>
+                        </div>
+                        <div class="direction-label">${msg.direction === 'incoming' ? '📩 From Tenant' : '📤 AI Response'}</div>
+                        <div class="message-content">${msg.message_body}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterMessages(filter) {
+            currentFilter = filter;
+            
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadMessages();
+        }
+
+        function formatDate(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            
+            return date.toLocaleDateString('es-MX', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Load data on page load
+        loadData();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>

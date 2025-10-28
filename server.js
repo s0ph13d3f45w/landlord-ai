@@ -17,9 +17,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // Health check endpoint
-app.get('/', (req, res) => {
-  res.send('🏠 Landlord AI is running!');
+// Serve dashboard
+app.get('/dashboard', (req, res) => {
+  res.sendFile(__dirname + '/dashboard.html');
 });
+
 
 // WhatsApp webhook - receives messages
 app.post('/webhook/whatsapp', async (req, res) => {
@@ -162,7 +164,98 @@ Por favor responde directamente al inquilino.`;
     console.error('❌ Failed to notify landlord:', error);
   }
 }
+// Dashboard API - Get all messages
+app.get('/api/messages', async (req, res) => {
+  try {
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        tenants (
+          name,
+          phone,
+          properties (
+            address,
+            landlord_name
+          )
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
+    if (error) throw error;
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Dashboard API - Get urgent messages only
+app.get('/api/messages/urgent', async (req, res) => {
+  try {
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        tenants (
+          name,
+          phone,
+          properties (
+            address,
+            landlord_name
+          )
+        )
+      `)
+      .eq('needs_landlord_attention', true)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error('Error fetching urgent messages:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Dashboard API - Get stats
+app.get('/api/stats', async (req, res) => {
+  try {
+    const { data: totalMessages } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true });
+    
+    const { data: urgentMessages } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('needs_landlord_attention', true);
+    
+    const { data: properties } = await supabase
+      .from('properties')
+      .select('id', { count: 'exact', head: true });
+
+    const { data: tenants } = await supabase
+      .from('tenants')
+      .select('id', { count: 'exact', head: true });
+
+    res.json({
+      success: true,
+      stats: {
+        totalMessages: totalMessages || 0,
+        urgentMessages: urgentMessages || 0,
+        properties: properties || 0,
+        tenants: tenants || 0
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+  
+});
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
