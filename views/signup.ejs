@@ -1,31 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up - Landlord AI</title>
+  <title>Registrarse - Landlord AI</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="auth-container">
     <div class="auth-box">
       <h1>🏠 Landlord AI</h1>
-      <h2>Create your account</h2>
+      <h2>Crea tu cuenta</h2>
       
       <% if (error) { %>
         <div class="error-message"><%= error %></div>
       <% } %>
       
       <form action="/signup" method="POST">
-        <input type="text" name="name" placeholder="Full Name" required>
-        <input type="email" name="email" placeholder="Email" required>
+        <input type="text" name="name" placeholder="Nombre Completo" required>
+        <input type="email" name="email" placeholder="Correo Electrónico" required>
         <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <button type="submit">Create Account</button>
+        <input type="password" name="password" placeholder="Contraseña" required>
+        <button type="submit">Crear Cuenta</button>
       </form>
       
       <p class="auth-link">
-        Already have an account? <a href="/login">Log in</a>
+        ¿Ya tienes cuenta? <a href="/login">Inicia sesión</a>
       </p>
     </div>
   </div>

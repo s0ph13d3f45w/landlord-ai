@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propiedades - Landlord AI</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>🏠 Landlord AI</h1>
+      <nav>
+        <a href="/dashboard">Panel</a>
+        <a href="/dashboard/properties" class="active">Propiedades</a>
+        <a href="/logout">Cerrar Sesión</a>
+      </nav>
+      <div class="sidebar-footer">
+        <p><%= landlordName %></p>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="dashboard-header">
+        <h2>Mis Propiedades</h2>
+        <button onclick="showAddPropertyModal()" class="btn-primary">+ Agregar Propiedad</button>
+      </header>
+      
+      <div class="properties-grid">
+        <% if (properties.length === 0) { %>
+          <div class="empty-state">
+            <p>No hay propiedades todavía. ¡Agrega tu primera propiedad para comenzar!</p>
+          </div>
+        <% } else { %>
+          <% properties.forEach(prop => { %>
+            <div class="property-card">
+              <h3><%= prop.address %></h3>
+              <p class="property-rent">$<%= prop.monthly_rent %> MXN/mes</p>
+              <p>Renta vence: Día <%= prop.rent_due_day %></p>
+              <% if (prop.special_instructions) { %>
+                <p class="property-notes"><%= prop.special_instructions %></p>
+              <% } %>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add Property Modal -->
+  <div id="addPropertyModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Agregar Nueva Propiedad</h2>
+      <form action="/dashboard/properties/add" method="POST">
+        <input type="text" name="address" placeholder="Dirección de la Propiedad" required>
+        <input type="number" name="monthly_rent" placeholder="Renta Mensual (MXN)" required>
+        <input type="number" name="rent_due_day" placeholder="Día de Vencimiento (1-31)" min="1" max="31" required>
+        <textarea name="special_instructions" placeholder="Instrucciones Especiales (opcional)" rows="3"></textarea>
+        <button type="submit" class="btn-primary">Agregar Propiedad</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    function showAddPropertyModal() {
+      document.getElementById('addPropertyModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+      document.getElementById('addPropertyModal').style.display = 'none';
+    }
+    
+    window.onclick = function(event) {
+      if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>

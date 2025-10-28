@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Landlord AI</title>
+  <title>Panel - Landlord AI</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -12,9 +12,9 @@
     <aside class="sidebar">
       <h1>🏠 Landlord AI</h1>
       <nav>
-        <a href="/dashboard" class="active">Dashboard</a>
-        <a href="/dashboard/properties">Properties</a>
-        <a href="/logout">Logout</a>
+        <a href="/dashboard" class="active">Panel</a>
+        <a href="/dashboard/properties">Propiedades</a>
+        <a href="/logout">Cerrar Sesión</a>
       </nav>
       <div class="sidebar-footer">
         <p><%= landlordName %></p>
@@ -24,33 +24,33 @@
     <!-- Main Content -->
     <main class="main-content">
       <header class="dashboard-header">
-        <h2>Messages</h2>
+        <h2>Mensajes</h2>
         <div class="stats">
           <div class="stat-box">
             <span class="stat-number"><%= properties.length %></span>
-            <span class="stat-label">Properties</span>
+            <span class="stat-label">Propiedades</span>
           </div>
           <div class="stat-box">
             <span class="stat-number"><%= tenants.length %></span>
-            <span class="stat-label">Tenants</span>
+            <span class="stat-label">Inquilinos</span>
           </div>
           <div class="stat-box">
             <span class="stat-number"><%= messages.length %></span>
-            <span class="stat-label">Messages</span>
+            <span class="stat-label">Mensajes</span>
           </div>
         </div>
       </header>
       
       <!-- Add Tenant Button -->
       <div class="action-bar">
-        <button onclick="showAddTenantModal()" class="btn-primary">+ Add Tenant</button>
+        <button onclick="showAddTenantModal()" class="btn-primary">+ Agregar Inquilino</button>
       </div>
       
       <!-- Messages List -->
       <div class="messages-container">
         <% if (messages.length === 0) { %>
           <div class="empty-state">
-            <p>No messages yet. Add a tenant to get started!</p>
+            <p>No hay mensajes todavía. ¡Agrega un inquilino para comenzar!</p>
           </div>
         <% } else { %>
           <% messages.forEach(msg => { %>
@@ -62,18 +62,18 @@
                 </div>
                 <div class="message-meta">
                   <span class="message-category <%= msg.category %>"><%= msg.category %></span>
-                  <span class="message-time"><%= new Date(msg.created_at).toLocaleString() %></span>
+                  <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX') %></span>
                 </div>
               </div>
               <div class="message-body">
-                <p><strong>Tenant:</strong> <%= msg.message_body %></p>
+                <p><strong>Inquilino:</strong> <%= msg.message_body %></p>
                 <% if (msg.ai_response) { %>
-                  <p><strong>AI:</strong> <%= msg.ai_response %></p>
+                  <p><strong>IA:</strong> <%= msg.ai_response %></p>
                 <% } %>
               </div>
               <% if (msg.needs_landlord_attention) { %>
                 <div class="message-actions">
-                  <button onclick="replyToTenant('<%= msg.tenants.phone %>', '<%= msg.tenants.name %>')" class="btn-reply">Reply</button>
+                  <button onclick="replyToTenant('<%= msg.tenants.phone %>', '<%= msg.tenants.name %>')" class="btn-reply">Responder</button>
                 </div>
               <% } %>
             </div>
@@ -87,18 +87,18 @@
   <div id="addTenantModal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeModal()">&times;</span>
-      <h2>Add New Tenant</h2>
+      <h2>Agregar Nuevo Inquilino</h2>
       <form action="/dashboard/tenants/add" method="POST">
-        <input type="text" name="name" placeholder="Tenant Name" required>
+        <input type="text" name="name" placeholder="Nombre del Inquilino" required>
         <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
         <select name="property_id" required>
-          <option value="">Select Property</option>
+          <option value="">Seleccionar Propiedad</option>
           <% properties.forEach(prop => { %>
             <option value="<%= prop.id %>"><%= prop.address %></option>
           <% }); %>
         </select>
-        <input type="date" name="move_in_date">
-        <button type="submit" class="btn-primary">Add Tenant</button>
+        <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
+        <button type="submit" class="btn-primary">Agregar Inquilino</button>
       </form>
     </div>
   </div>
@@ -107,9 +107,9 @@
   <div id="replyModal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeReplyModal()">&times;</span>
-      <h2>Reply to <span id="replyTenantName"></span></h2>
-      <textarea id="replyMessage" placeholder="Type your message..." rows="4"></textarea>
-      <button onclick="sendReply()" class="btn-primary">Send via WhatsApp</button>
+      <h2>Responder a <span id="replyTenantName"></span></h2>
+      <textarea id="replyMessage" placeholder="Escribe tu mensaje..." rows="4"></textarea>
+      <button onclick="sendReply()" class="btn-primary">Enviar por WhatsApp</button>
     </div>
   </div>
   
@@ -137,7 +137,7 @@
     
     async function sendReply() {
       const message = document.getElementById('replyMessage').value;
-      if (!message) return alert('Please type a message');
+      if (!message) return alert('Por favor escribe un mensaje');
       
       const response = await fetch('/dashboard/reply', {
         method: 'POST',
@@ -147,10 +147,11 @@
       
       const result = await response.json();
       if (result.success) {
-        alert('Message sent!');
+        alert('¡Mensaje enviado!');
         closeReplyModal();
+        location.reload();
       } else {
-        alert('Error sending message: ' + result.error);
+        alert('Error al enviar mensaje: ' + result.error);
       }
     }
     

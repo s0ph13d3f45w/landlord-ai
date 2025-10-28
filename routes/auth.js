@@ -32,7 +32,7 @@ router.post('/signup', async (req, res) => {
       .single();
     
     if (error) {
-      return res.render('signup', { error: 'Email already exists' });
+      return res.render('signup', { error: 'El correo ya existe' });
     }
     
     // Save landlord to session (log them in)
@@ -44,7 +44,7 @@ router.post('/signup', async (req, res) => {
     
   } catch (error) {
     console.error('Signup error:', error);
-    res.render('signup', { error: 'Something went wrong' });
+res.render('signup', { error: 'Algo salió mal' });
   }
 });
 
@@ -66,14 +66,14 @@ router.post('/login', async (req, res) => {
       .single();
     
     if (error || !landlord) {
-      return res.render('login', { error: 'Invalid email or password' });
+     return res.render('login', { error: 'Correo o contraseña incorrectos' });
     }
     
     // Check if password matches
     const passwordMatch = await bcrypt.compare(password, landlord.password_hash);
     
     if (!passwordMatch) {
-      return res.render('login', { error: 'Invalid email or password' });
+      return res.render('login', { error: 'Correo o contraseña incorrectos' });
     }
     
     // Save to session (log them in)
@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    res.render('login', { error: 'Something went wrong' });
+    res.render('login', { error: 'Algo salió mal' });
   }
 });
 
