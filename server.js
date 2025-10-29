@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -40,6 +41,27 @@ app.use(session({
     httpOnly: true
   }
 }));
+
+// Add this BEFORE your other routes
+app.get('/test-twilio', async (req, res) => {
+  try {
+    console.log('🧪 Testing Twilio connection...');
+    console.log('Account SID:', process.env.TWILIO_ACCOUNT_SID);
+    console.log('WhatsApp Number:', process.env.TWILIO_WHATSAPP_NUMBER);
+    
+    // Try to send a test message to yourself
+    const message = await twilioClient.messages.create({
+      from: process.env.TWILIO_WHATSAPP_NUMBER,
+      to: 'whatsapp:+YOUR_PHONE_NUMBER', // Put your real phone number here
+      body: '🧪 Test message from Landlord AI'
+    });
+    
+    res.send(`✅ Success! Message SID: ${message.sid}`);
+  } catch (error) {
+    console.error('❌ Twilio Error:', error);
+    res.status(500).send(`❌ Error: ${error.message}`);
+  }
+});
 
 // Import routes
 const initAuthRoutes = require('./routes/auth');
