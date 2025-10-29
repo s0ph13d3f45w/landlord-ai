@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inquilinos - Landlord AI</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>🏠 Landlord AI</h1>
+      <nav>
+        <a href="/dashboard">Panel</a>
+        <a href="/dashboard/properties">Propiedades</a>
+        <a href="/dashboard/tenants" class="active">Inquilinos</a>
+        <a href="/logout">Cerrar Sesión</a>
+      </nav>
+      <div class="sidebar-footer">
+        <p><%= landlordName %></p>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="dashboard-header">
+        <h2>Mis Inquilinos</h2>
+        <button onclick="showAddTenantModal()" class="btn-primary">+ Agregar Inquilino</button>
+      </header>
+      
+      <div class="properties-grid">
+        <% if (tenants.length === 0) { %>
+          <div class="empty-state">
+            <p>No hay inquilinos todavía. ¡Agrega tu primer inquilino para comenzar!</p>
+          </div>
+        <% } else { %>
+          <% tenants.forEach(tenant => { %>
+            <div class="property-card">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                <h3><%= tenant.name %></h3>
+                <button 
+                  onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" 
+                  class="delete-btn"
+                  title="Eliminar inquilino">
+                  🗑️ Eliminar
+                </button>
+              </div>
+              <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
+              <p><strong>📱</strong> <%= tenant.phone %></p>
+              <% if (tenant.properties?.monthly_rent) { %>
+                <p><strong>💰</strong> $<%= tenant.properties.monthly_rent %> MXN/mes</p>
+              <% } %>
+              <% if (tenant.properties?.rent_due_day) { %>
+                <p><strong>📅</strong> Día de pago: <%= tenant.properties.rent_due_day %></p>
+              <% } %>
+              <% if (tenant.move_in_date) { %>
+                <p class="property-notes">Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
+              <% } %>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add Tenant Modal -->
+  <div id="addTenantModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Agregar Nuevo Inquilino</h2>
+      <% if (properties.length === 0) { %>
+        <p style="color: #ef4444; margin-bottom: 1rem;">
+          ⚠️ Primero debes <a href="/dashboard/properties" style="color: #0071e3;">agregar una propiedad</a>
+        </p>
+      <% } else { %>
+        <form action="/dashboard/tenants/add" method="POST">
+          <input type="text" name="name" placeholder="Nombre del Inquilino" required>
+          <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
+          <select name="property_id" required>
+            <option value="">Seleccionar Propiedad</option>
+            <% properties.forEach(prop => { %>
+              <option value="<%= prop.id %>"><%= prop.address %></option>
+            <% }); %>
+          </select>
+          <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
+          <button type="submit" class="btn-primary">Agregar Inquilino</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+  
+  <script>
+    function showAddTenantModal() {
+      document.getElementById('addTenantModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+      document.getElementById('addTenantModal').style.display = 'none';
+    }
+    
+    function deleteTenant(tenantId, tenantName) {
+      if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/dashboard/tenants/delete/${tenantId}`;
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
