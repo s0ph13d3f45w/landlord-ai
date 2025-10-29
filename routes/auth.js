@@ -44,13 +44,13 @@ router.post('/signup', async (req, res) => {
     
   } catch (error) {
     console.error('Signup error:', error);
-res.render('signup', { error: 'Algo salió mal' });
+    res.render('signup', { error: 'Algo salió mal' });
   }
 });
 
 // GET /login - Show the login page
 router.get('/login', (req, res) => {
-  res.render('login', { error: null });
+  res.render('login', { error: null, success: null });
 });
 
 // POST /login - Process the login form
@@ -66,14 +66,14 @@ router.post('/login', async (req, res) => {
       .single();
     
     if (error || !landlord) {
-     return res.render('login', { error: 'Correo o contraseña incorrectos' });
+      return res.render('login', { error: 'Correo o contraseña incorrectos', success: null });
     }
     
     // Check if password matches
     const passwordMatch = await bcrypt.compare(password, landlord.password_hash);
     
     if (!passwordMatch) {
-      return res.render('login', { error: 'Correo o contraseña incorrectos' });
+      return res.render('login', { error: 'Correo o contraseña incorrectos', success: null });
     }
     
     // Save to session (log them in)
@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
     
   } catch (error) {
     console.error('Login error:', error);
-    res.render('login', { error: 'Algo salió mal' });
+    res.render('login', { error: 'Algo salió mal', success: null });
   }
 });
 

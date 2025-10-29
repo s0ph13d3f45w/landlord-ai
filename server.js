@@ -50,6 +50,7 @@ app.use('/', initAuthRoutes(supabase));
 app.use('/', initDashboardRoutes(supabase, twilioClient));
 app.use('/', initPasswordResetRoutes(supabase));
 
+RAILWAY_URL=https://https://web-production-d8745.up.railway.app/
 // Root route - redirect to dashboard or login
 app.get('/', (req, res) => {
   if (req.session.landlordId) {
