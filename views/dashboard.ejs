@@ -49,24 +49,32 @@
       </div>
 
       <!-- Tenants Overview -->
-      <% if (tenants.length > 0) { %>
-        <section style="margin-bottom: 2rem;">
-          <h3 style="margin-bottom: 1rem;">Inquilinos Activos</h3>
-          <div class="properties-grid">
-            <% tenants.forEach(tenant => { %>
-              <div class="property-card">
-                <h3><%= tenant.name %></h3>
-                <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
-                <p><strong>📱</strong> <%= tenant.phone %></p>
-                <% if (tenant.move_in_date) { %>
-                  <p><strong>📅</strong> Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
-                <% } %>
-              </div>
-            <% }); %>
+  <!-- Tenants Overview -->
+<% if (tenants.length > 0) { %>
+    <section style="margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Inquilinos Activos</h3>
+      <div class="properties-grid">
+        <% tenants.forEach(tenant => { %>
+          <div class="property-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <h3><%= tenant.name %></h3>
+              <button 
+                onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" 
+                style="background: #ff3b30; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;"
+                title="Eliminar inquilino">
+                🗑️
+              </button>
+            </div>
+            <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
+            <p><strong>📱</strong> <%= tenant.phone %></p>
+            <% if (tenant.move_in_date) { %>
+              <p><strong>📅</strong> Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
+            <% } %>
           </div>
-        </section>
-      <% } %>
-      
+        <% }); %>
+      </div>
+    </section>
+  <% } %>
       <!-- Messages Section -->
       <section>
         <h3 style="margin-bottom: 1rem;">Mensajes Recientes</h3>
@@ -200,6 +208,16 @@
         event.target.style.display = 'none';
       }
     }
+    function deleteTenant(tenantId, tenantName) {
+  if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+    // Create a form and submit it
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/dashboard/tenants/delete/${tenantId}`;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
   </script>
 </body>
 </html>

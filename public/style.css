@@ -474,3 +474,18 @@
     text-align: center;
     border: 1px solid #a5d6a7;
   }
+
+  .delete-btn {
+    background: #ff3b30;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+  }
+  
+  .delete-btn:hover {
+    background: #ff2d1f;
+  }

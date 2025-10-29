@@ -206,5 +206,39 @@ router.post('/dashboard/reply', requireLogin, async (req, res) => {
     res.json({ success: false, error: error.message });
   }
 });
-
+// DELETE /dashboard/tenants/delete/:id - Delete a tenant
+router.post('/dashboard/tenants/delete/:id', requireLogin, async (req, res) => {
+    try {
+      const tenantId = req.params.id;
+      
+      console.log('🗑️  Attempting to delete tenant:', tenantId);
+      
+      // First delete all messages from this tenant
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('tenant_id', tenantId);
+      
+      // Then delete the tenant
+      const { error } = await supabase
+        .from('tenants')
+        .delete()
+        .eq('id', tenantId);
+      
+      if (error) {
+        console.error('❌ Delete error:', error);
+        return res.status(500).send('Error deleting tenant: ' + error.message);
+      }
+      
+      console.log('✅ Tenant deleted successfully');
+      
+      // Redirect back
+      const referer = req.get('referer') || '/dashboard';
+      res.redirect(referer);
+      
+    } catch (error) {
+      console.error('❌ Delete tenant error:', error);
+      res.status(500).send('Error deleting tenant: ' + error.message);
+    }
+  });
 module.exports = initDashboardRoutes;
