@@ -106,8 +106,7 @@
                 </div>
                 <% if (msg.needs_landlord_attention) { %>
                   <div class="message-actions">
-                    <button onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || 'Inquilino' %>')" class="btn-reply">Responder</button>
-                  </div>
+                    <button onclick="replyToTenant(this.dataset.phone, this.dataset.name)" data-phone="<%= msg.tenants?.phone || '' %>" data-name="<%= msg.tenants?.name || 'Inquilino' %>" class="btn-reply">Responder</button>
                 <% } %>
               </div>
             <% }); %>
