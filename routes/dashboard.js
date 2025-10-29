@@ -151,31 +151,42 @@ router.post('/dashboard/properties/add', requireLogin, async (req, res) => {
 });
 
 // POST /dashboard/tenants/add - Add new tenant
+// POST /dashboard/tenants/add - Add new tenant
 router.post('/dashboard/tenants/add', requireLogin, async (req, res) => {
-  try {
-    const { name, phone, property_id, move_in_date } = req.body;
-    
-    await supabase
-      .from('tenants')
-      .insert([{
-        name,
-        phone,
-        property_id,
-        move_in_date: move_in_date || null
-      }]);
-    
-    // Redirect back to where they came from
-    const referer = req.get('referer') || '/dashboard';
-    if (referer.includes('/dashboard/tenants')) {
-      res.redirect('/dashboard/tenants');
-    } else {
-      res.redirect('/dashboard');
+    try {
+      const { name, phone, property_id, move_in_date } = req.body;
+      
+      console.log('📝 Attempting to add tenant:', { name, phone, property_id, move_in_date });
+      
+      const { data, error } = await supabase
+        .from('tenants')
+        .insert([{
+          name,
+          phone,
+          property_id,
+          move_in_date: move_in_date || null
+        }])
+        .select();
+      
+      if (error) {
+        console.error('❌ Database error:', error);
+        return res.status(500).send(`Error adding tenant: ${error.message}`);
+      }
+      
+      console.log('✅ Tenant added successfully:', data);
+      
+      // Redirect back to where they came from
+      const referer = req.get('referer') || '/dashboard';
+      if (referer.includes('/dashboard/tenants')) {
+        res.redirect('/dashboard/tenants');
+      } else {
+        res.redirect('/dashboard');
+      }
+    } catch (error) {
+      console.error('❌ Add tenant error:', error);
+      res.status(500).send('Error adding tenant: ' + error.message);
     }
-  } catch (error) {
-    console.error('Add tenant error:', error);
-    res.status(500).send('Error adding tenant');
-  }
-});
+  });
 
 // POST /dashboard/reply - Reply to a tenant
 router.post('/dashboard/reply', requireLogin, async (req, res) => {
