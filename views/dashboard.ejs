@@ -14,6 +14,7 @@
       <nav>
         <a href="/dashboard" class="active">Panel</a>
         <a href="/dashboard/properties">Propiedades</a>
+        <a href="/dashboard/tenants">Inquilinos</a>
         <a href="/logout">Cerrar Sesión</a>
       </nav>
       <div class="sidebar-footer">
@@ -24,7 +25,7 @@
     <!-- Main Content -->
     <main class="main-content">
       <header class="dashboard-header">
-        <h2>Mensajes</h2>
+        <h2>Panel General</h2>
         <div class="stats">
           <div class="stat-box">
             <span class="stat-number"><%= properties.length %></span>
@@ -40,46 +41,79 @@
           </div>
         </div>
       </header>
-      
-      <!-- Add Tenant Button -->
+
+      <!-- Quick Actions -->
       <div class="action-bar">
         <button onclick="showAddTenantModal()" class="btn-primary">+ Agregar Inquilino</button>
+        <button onclick="window.location.href='/dashboard/properties'" class="btn-primary">+ Agregar Propiedad</button>
       </div>
-      
-      <!-- Messages List -->
-      <div class="messages-container">
-        <% if (messages.length === 0) { %>
-          <div class="empty-state">
-            <p>No hay mensajes todavía. ¡Agrega un inquilino para comenzar!</p>
-          </div>
-        <% } else { %>
-          <% messages.forEach(msg => { %>
-            <div class="message-card <%= msg.needs_landlord_attention ? 'urgent' : '' %>">
-              <div class="message-header">
-                <div>
-                  <strong><%= msg.tenants.name %></strong>
-                  <span class="message-property"><%= msg.tenants.properties.address %></span>
-                </div>
-                <div class="message-meta">
-                  <span class="message-category <%= msg.category %>"><%= msg.category %></span>
-                  <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX') %></span>
-                </div>
-              </div>
-              <div class="message-body">
-                <p><strong>Inquilino:</strong> <%= msg.message_body %></p>
-                <% if (msg.ai_response) { %>
-                  <p><strong>IA:</strong> <%= msg.ai_response %></p>
+
+      <!-- Tenants Overview -->
+      <% if (tenants.length > 0) { %>
+        <section style="margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1rem;">Inquilinos Activos</h3>
+          <div class="properties-grid">
+            <% tenants.forEach(tenant => { %>
+              <div class="property-card">
+                <h3><%= tenant.name %></h3>
+                <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
+                <p><strong>📱</strong> <%= tenant.phone %></p>
+                <% if (tenant.move_in_date) { %>
+                  <p><strong>📅</strong> Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
                 <% } %>
               </div>
-              <% if (msg.needs_landlord_attention) { %>
-                <div class="message-actions">
-                  <button onclick="replyToTenant('<%= msg.tenants.phone %>', '<%= msg.tenants.name %>')" class="btn-reply">Responder</button>
-                </div>
+            <% }); %>
+          </div>
+        </section>
+      <% } %>
+      
+      <!-- Messages Section -->
+      <section>
+        <h3 style="margin-bottom: 1rem;">Mensajes Recientes</h3>
+        <div class="messages-container">
+          <% if (messages.length === 0) { %>
+            <div class="empty-state">
+              <p>No hay mensajes todavía. Tus inquilinos pueden enviar mensajes por WhatsApp.</p>
+              <% if (tenants.length > 0) { %>
+                <p style="margin-top: 1rem; color: #666; font-size: 14px;">
+                  📱 Número de WhatsApp: <%= process.env.TWILIO_WHATSAPP_NUMBER || '+1 415 523 8886' %>
+                </p>
+                <p style="color: #666; font-size: 14px;">
+                  ⚠️ Los inquilinos deben enviar "join <sandbox-name>" primero (Twilio Sandbox)
+                </p>
               <% } %>
             </div>
-          <% }); %>
-        <% } %>
-      </div>
+          <% } else { %>
+            <% messages.forEach(msg => { %>
+              <div class="message-card <%= msg.needs_landlord_attention ? 'urgent' : '' %>">
+                <div class="message-header">
+                  <div>
+                    <strong><%= msg.tenants?.name || 'Inquilino' %></strong>
+                    <span class="message-property"><%= msg.tenants?.properties?.address || 'Propiedad desconocida' %></span>
+                  </div>
+                  <div class="message-meta">
+                    <% if (msg.category) { %>
+                      <span class="message-category <%= msg.category %>"><%= msg.category %></span>
+                    <% } %>
+                    <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX') %></span>
+                  </div>
+                </div>
+                <div class="message-body">
+                  <p><strong>Inquilino:</strong> <%= msg.message_body %></p>
+                  <% if (msg.ai_response) { %>
+                    <p><strong>IA:</strong> <%= msg.ai_response %></p>
+                  <% } %>
+                </div>
+                <% if (msg.needs_landlord_attention) { %>
+                  <div class="message-actions">
+                    <button onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || 'Inquilino' %>')" class="btn-reply">Responder</button>
+                  </div>
+                <% } %>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </section>
     </main>
   </div>
   
@@ -88,18 +122,24 @@
     <div class="modal-content">
       <span class="close" onclick="closeModal()">&times;</span>
       <h2>Agregar Nuevo Inquilino</h2>
-      <form action="/dashboard/tenants/add" method="POST">
-        <input type="text" name="name" placeholder="Nombre del Inquilino" required>
-        <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
-        <select name="property_id" required>
-          <option value="">Seleccionar Propiedad</option>
-          <% properties.forEach(prop => { %>
-            <option value="<%= prop.id %>"><%= prop.address %></option>
-          <% }); %>
-        </select>
-        <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
-        <button type="submit" class="btn-primary">Agregar Inquilino</button>
-      </form>
+      <% if (properties.length === 0) { %>
+        <p style="color: #ef4444; margin-bottom: 1rem;">
+          ⚠️ Primero debes <a href="/dashboard/properties" style="color: #0071e3;">agregar una propiedad</a>
+        </p>
+      <% } else { %>
+        <form action="/dashboard/tenants/add" method="POST">
+          <input type="text" name="name" placeholder="Nombre del Inquilino" required>
+          <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
+          <select name="property_id" required>
+            <option value="">Seleccionar Propiedad</option>
+            <% properties.forEach(prop => { %>
+              <option value="<%= prop.id %>"><%= prop.address %></option>
+            <% }); %>
+          </select>
+          <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
+          <button type="submit" class="btn-primary">Agregar Inquilino</button>
+        </form>
+      <% } %>
     </div>
   </div>
   

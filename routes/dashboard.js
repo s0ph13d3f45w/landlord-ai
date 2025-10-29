@@ -63,6 +63,43 @@ router.get('/dashboard', requireLogin, async (req, res) => {
   }
 });
 
+// GET /dashboard/tenants - View all tenants
+router.get('/dashboard/tenants', requireLogin, async (req, res) => {
+  try {
+    const landlordId = req.session.landlordId;
+    
+    // Get landlord's properties (needed for add tenant form)
+    const { data: properties } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('landlord_id', landlordId);
+    
+    // Get all tenants with property details
+    const { data: tenants } = await supabase
+      .from('tenants')
+      .select(`
+        *,
+        properties (
+          address,
+          monthly_rent,
+          rent_due_day
+        )
+      `)
+      .in('property_id', properties?.map(p => p.id) || [])
+      .order('created_at', { ascending: false });
+    
+    res.render('tenants', {
+      landlordName: req.session.landlordName,
+      properties: properties || [],
+      tenants: tenants || []
+    });
+    
+  } catch (error) {
+    console.error('Tenants page error:', error);
+    res.status(500).send('Error loading tenants');
+  }
+});
+
 // GET /dashboard/properties - Manage properties
 router.get('/dashboard/properties', requireLogin, async (req, res) => {
   try {
@@ -124,10 +161,16 @@ router.post('/dashboard/tenants/add', requireLogin, async (req, res) => {
         name,
         phone,
         property_id,
-        move_in_date
+        move_in_date: move_in_date || null
       }]);
     
-    res.redirect('/dashboard');
+    // Redirect back to where they came from
+    const referer = req.get('referer') || '/dashboard';
+    if (referer.includes('/dashboard/tenants')) {
+      res.redirect('/dashboard/tenants');
+    } else {
+      res.redirect('/dashboard');
+    }
   } catch (error) {
     console.error('Add tenant error:', error);
     res.status(500).send('Error adding tenant');
