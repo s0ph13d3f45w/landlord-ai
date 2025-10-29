@@ -3,14 +3,14 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const twilio = require('twilio');
-const OpenAI = require('openai');
+const { Dedalus } = require('dedalus-labs');
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Express app
 const app = express();
 
 // Initialize services
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const dedalus = new Dedalus({ apiKey: process.env.DEDALUS_API_KEY });
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
@@ -157,7 +157,7 @@ Responde en formato JSON:
   "needsAttention": true solo si REALMENTE necesita al casero, false si puedes ayudar directamente
 }`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await dedalus.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
