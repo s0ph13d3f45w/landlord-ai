@@ -213,3 +213,6 @@ router.post('/reset-password', async (req, res) => {
     });
   }
 });
+
+// THIS WAS MISSING! Export the function
+module.exports = initPasswordResetRoutes;
