@@ -83,17 +83,17 @@ app.use(session({
 // DEBUGGING ENDPOINTS
 // ============================================
 
-// Test Dedalus AI - ✅ FIXED: Correct API call
+// Test Dedalus AI - Try different model names
 app.get('/test-dedalus', async (req, res) => {
   try {
     console.log('\n🧪 Testing Dedalus AI...');
     console.log('API Key present:', !!process.env.DEDALUS_API_KEY);
     
-    // ✅ CORRECT: Use dedalus.chat.create() not dedalus.chat.completions.create()
+    // ✅ Try without specifying model (use default)
     const completion = await dedalus.chat.create({
-      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'Say "Hello, Dedalus is working!"' }],
-      temperature: 0.7
+      temperature: 0.7,
+      max_tokens: 100
     });
     
     const response = completion.choices[0].message.content;
@@ -102,7 +102,29 @@ app.get('/test-dedalus', async (req, res) => {
     res.send(`✅ Dedalus AI is working!\n\nResponse: ${response}`);
   } catch (error) {
     console.error('❌ Dedalus Error:', error);
-    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nCheck your DEDALUS_API_KEY in environment variables.`);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nFull error: ${JSON.stringify(error, null, 2)}`);
+  }
+});
+
+// Test with model list
+app.get('/test-models', async (req, res) => {
+  try {
+    console.log('\n🧪 Testing model list...');
+    
+    const models = await dedalus.models.list();
+    console.log('Available models:', models);
+    
+    res.json({
+      success: true,
+      models: models
+    });
+  } catch (error) {
+    console.error('❌ Models Error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
@@ -151,10 +173,9 @@ app.get('/test-all', async (req, res) => {
     results.twilio = `❌ Error: ${error.message}`;
   }
   
-  // Test Dedalus - ✅ FIXED
+  // Test Dedalus - without model specification
   try {
     await dedalus.chat.create({
-      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'test' }],
       max_tokens: 5
     });
@@ -294,7 +315,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 });
 
 // ============================================
-// AI RESPONSE GENERATION - ✅ FIXED
+// AI RESPONSE GENERATION - ✅ WITHOUT MODEL SPECIFICATION
 // ============================================
 
 async function generateAIResponse(message, tenant, property) {
@@ -322,12 +343,10 @@ Responde en JSON:
 }`;
 
   try {
-    // ✅ CORRECT: Use dedalus.chat.create()
+    // ✅ Try without model parameter (use Dedalus default)
     const completion = await dedalus.chat.create({
-      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-      response_format: { type: 'json_object' },
       max_tokens: 600
     });
     
@@ -444,5 +463,8 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('\n🚀 LANDLORD AI SERVER STARTED');
   console.log(`📡 Port: ${PORT}`);
-  console.log(`🧪 Test: /test-dedalus\n`);
+  console.log(`🧪 Test endpoints:`);
+  console.log(`   /test-dedalus - Test AI`);
+  console.log(`   /test-models - List available models`);
+  console.log(`   /test-all - Test everything\n`);
 });
