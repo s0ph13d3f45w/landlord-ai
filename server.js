@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const twilio = require('twilio');
-const dedalusLabs = require('dedalus-labs'); // ✅ FIXED: Correct import
+const { Dedalus } = require('dedalus-labs');
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Express app
@@ -28,15 +28,30 @@ if (missingVars.length > 0) {
   console.log('✅ All required environment variables are set');
 }
 
-// Initialize services with error handling
-let supabase, twilioClient;
+// 🔍 DIAGNOSTIC: Check API key format
+if (process.env.DEDALUS_API_KEY) {
+  console.log('✅ DEDALUS_API_KEY exists');
+  console.log('   Length:', process.env.DEDALUS_API_KEY.length, 'characters');
+  console.log('   Starts with:', process.env.DEDALUS_API_KEY.substring(0, 10) + '...');
+  console.log('   Has spaces:', process.env.DEDALUS_API_KEY.includes(' ') ? '❌ YES (PROBLEM!)' : '✅ No');
+} else {
+  console.error('❌ DEDALUS_API_KEY is not set!');
+}
 
-// ✅ FIXED: Configure Dedalus properly
+// Initialize services with error handling
+let dedalus, supabase, twilioClient;
+
 try {
-  dedalusLabs.configure({ apiKey: process.env.DEDALUS_API_KEY });
-  console.log('✅ Dedalus configured with API key');
+  // ✅ Your original code was correct!
+  dedalus = new Dedalus({ 
+    apiKey: process.env.DEDALUS_API_KEY?.trim() // Trim any accidental whitespace
+  });
+  console.log('✅ Dedalus client created');
+  console.log('   Has chat property:', 'chat' in dedalus ? '✅ Yes' : '❌ No');
+  console.log('   Type:', typeof dedalus);
 } catch (error) {
-  console.error('❌ Dedalus configuration failed:', error.message);
+  console.error('❌ Dedalus initialization failed:', error.message);
+  console.error('   Stack:', error.stack);
 }
 
 try {
@@ -107,14 +122,30 @@ app.get('/test-twilio', async (req, res) => {
   }
 });
 
-// Test Dedalus AI
+// Test Dedalus AI - WITH BETTER DIAGNOSTICS
 app.get('/test-dedalus', async (req, res) => {
   try {
     console.log('\n🧪 Testing Dedalus AI...');
     console.log('API Key present:', !!process.env.DEDALUS_API_KEY);
+    console.log('API Key length:', process.env.DEDALUS_API_KEY?.length);
+    console.log('Dedalus client exists:', !!dedalus);
+    console.log('Dedalus has chat:', dedalus && 'chat' in dedalus);
+    console.log('Dedalus.chat exists:', dedalus?.chat);
+    console.log('Dedalus.chat.completions exists:', dedalus?.chat?.completions);
     
-    // ✅ FIXED: Use correct method call
-    const completion = await dedalusLabs.chat.completions.create({
+    if (!dedalus) {
+      throw new Error('Dedalus client was not initialized. Check DEDALUS_API_KEY.');
+    }
+    
+    if (!dedalus.chat) {
+      throw new Error('Dedalus client has no chat property. Client may be malformed.');
+    }
+    
+    if (!dedalus.chat.completions) {
+      throw new Error('Dedalus.chat has no completions property.');
+    }
+    
+    const completion = await dedalus.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'Say "Hello, Dedalus is working!"' }],
       temperature: 0.7
@@ -126,7 +157,7 @@ app.get('/test-dedalus', async (req, res) => {
     res.send(`✅ Dedalus AI is working!\n\nResponse: ${response}`);
   } catch (error) {
     console.error('❌ Dedalus Error:', error);
-    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nCheck your DEDALUS_API_KEY in environment variables.`);
+    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nStack: ${error.stack}\n\nCheck your DEDALUS_API_KEY in environment variables.`);
   }
 });
 
@@ -179,7 +210,7 @@ app.get('/test-all', async (req, res) => {
   
   // Test Dedalus
   try {
-    await dedalusLabs.chat.completions.create({
+    await dedalus.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'test' }],
       max_tokens: 5
@@ -404,7 +435,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 });
 
 // ============================================
-// AI RESPONSE GENERATION - ✅ FIXED
+// AI RESPONSE GENERATION
 // ============================================
 
 async function generateAIResponse(message, tenant, property) {
@@ -448,10 +479,16 @@ Responde en JSON:
 }`;
 
   console.log('  Sending prompt to Dedalus (length:', prompt.length, 'chars)');
+  console.log('  Dedalus client exists:', !!dedalus);
+  console.log('  Dedalus.chat exists:', !!dedalus?.chat);
+  console.log('  Dedalus.chat.completions exists:', !!dedalus?.chat?.completions);
 
   try {
-    // ✅ FIXED: Use correct method call
-    const completion = await dedalusLabs.chat.completions.create({
+    if (!dedalus || !dedalus.chat || !dedalus.chat.completions) {
+      throw new Error('Dedalus client not properly initialized');
+    }
+    
+    const completion = await dedalus.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
@@ -476,6 +513,7 @@ Responde en JSON:
     
   } catch (error) {
     console.error('  ❌ Dedalus API Error:', error.message);
+    console.error('  Stack:', error.stack);
     
     // Smart fallback based on message keywords
     const lowerMessage = message.toLowerCase();
