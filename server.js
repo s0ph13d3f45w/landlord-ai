@@ -406,7 +406,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 // ============================================
 
 async function generateAIResponse(message, tenant, property) {
-  const prompt = `Eres un asistente virtual para caseros en México. Responde al inquilino de manera útil y profesional.
+  const prompt = `Eres un asistente virtual amigable para inquilinos en México. Tu trabajo es ayudar DIRECTAMENTE cuando sea posible.
 
 INFORMACIÓN DEL INQUILINO:
 - Nombre: ${tenant.name}
@@ -419,40 +419,112 @@ INFORMACIÓN DEL INQUILINO:
 MENSAJE DEL INQUILINO:
 "${message}"
 
-INSTRUCCIONES IMPORTANTES:
-1. SÉ PROACTIVO Y ÚTIL - Da soluciones e instrucciones paso a paso
-2. RESUELVE DIRECTAMENTE - Si puedes responder sin involucrar al casero, hazlo
-3. DA INSTRUCCIONES CLARAS - Explica QUÉ hacer y CÓMO hacerlo
-4. USA EJEMPLOS - Si hablas de pagos, da ejemplos con números reales
+REGLAS IMPORTANTES:
+1. **SÉ MUY ÚTIL** - Responde la pregunta completamente, no solo digas "el casero te contactará"
+2. **RESUELVE DIRECTAMENTE** - Solo marca needsAttention: true si REALMENTE necesita al casero
+3. **DA INFORMACIÓN COMPLETA** - Si preguntan sobre mascotas/reglas/pagos, explica todo lo que sabes
+4. **SÉ ESPECÍFICO** - Usa los datos de la propiedad en tu respuesta
 
-CATEGORÍAS Y CUÁNDO INVOLUCRAR AL CASERO:
-- URGENTE (needsAttention: true): Fugas, emergencias, seguridad
-- MANTENIMIENTO (needsAttention: true si necesita profesional): Reparaciones
-- PAGO (needsAttention: false excepto prórroga): Dudas sobre pagos
-- CONSULTA (needsAttention: false): Información general
+CUÁNDO MARCAR needsAttention: true:
+- ❌ Dudas sobre pagos/fechas → needsAttention: false (usa la información que tienes)
+- ❌ Preguntas generales respondibles → needsAttention: false (responde directamente)
+- ✅ Emergencias reales (fugas graves, incendios) → needsAttention: true
+- ✅ Reparaciones que necesitan profesional → needsAttention: true
+- ✅ Solicitudes de cambios (modificar contrato, mascotas) → needsAttention: true
 
-Responde en formato JSON:
+CATEGORÍAS:
+- URGENTE: Emergencias de seguridad/salud
+- MANTENIMIENTO: Reparaciones o mantenimiento
+- PAGO: Temas de renta y pagos
+- CONSULTA: Preguntas generales, reglas
+
+Responde en JSON:
 {
-  "message": "tu respuesta ÚTIL aquí (máximo 400 caracteres, da instrucciones claras)",
-  "category": "URGENTE o MANTENIMIENTO o PAGO o CONSULTA",
-  "needsAttention": true solo si REALMENTE necesita al casero, false si puedes ayudar directamente
+  "message": "Tu respuesta útil aquí (máximo 500 caracteres)",
+  "category": "URGENTE|MANTENIMIENTO|PAGO|CONSULTA",
+  "needsAttention": true o false
 }`;
 
   console.log('  Sending prompt to Dedalus (length:', prompt.length, 'chars)');
 
-  const completion = await dedalus.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
-    response_format: { type: 'json_object' }
-  });
-  
-  const responseText = completion.choices[0].message.content;
-  console.log('  Raw AI response:', responseText);
-  
-  const response = JSON.parse(responseText);
-  return response;
+  try {
+    const completion = await dedalus.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+      max_tokens: 600
+    });
+    
+    const responseText = completion.choices[0].message.content;
+    console.log('  ✅ Raw AI response:', responseText);
+    
+    const response = JSON.parse(responseText);
+    
+    // Validate response has required fields
+    if (!response.message || !response.category) {
+      throw new Error('Invalid AI response format');
+    }
+    
+    // Ensure needsAttention is a boolean
+    response.needsAttention = response.needsAttention === true;
+    
+    return response;
+    
+  } catch (error) {
+    console.error('  ❌ Dedalus API Error:', error.message);
+    
+    // Smart fallback based on message keywords
+    const lowerMessage = message.toLowerCase();
+    
+    // Emergency
+    if (lowerMessage.includes('fuga') || lowerMessage.includes('incendio') || 
+        lowerMessage.includes('emergencia') || lowerMessage.includes('gas')) {
+      return {
+        message: '🚨 Esto es una emergencia. He notificado a tu casero de inmediato. Si es una fuga de agua, cierra la llave de paso principal si es seguro.',
+        category: 'URGENTE',
+        needsAttention: true
+      };
+    }
+    
+    // Payment questions
+    if (lowerMessage.includes('pago') || lowerMessage.includes('renta') || 
+        lowerMessage.includes('transferencia') || lowerMessage.includes('cuanto')) {
+      return {
+        message: `Tu renta es de $${property?.monthly_rent || 'N/A'} MXN y vence el día ${property?.rent_due_day || 'N/A'} de cada mes. ¿Necesitas los datos para transferencia?`,
+        category: 'PAGO',
+        needsAttention: false
+      };
+    }
+    
+    // Pet questions
+    if (lowerMessage.includes('mascota') || lowerMessage.includes('perro') || lowerMessage.includes('gato')) {
+      return {
+        message: 'Sobre las mascotas: he notificado a tu casero para confirmar la política específica de tu propiedad. Te responderá pronto con los detalles.',
+        category: 'CONSULTA',
+        needsAttention: true
+      };
+    }
+    
+    // Maintenance
+    if (lowerMessage.includes('arreglar') || lowerMessage.includes('reparar') || 
+        lowerMessage.includes('descompuesto') || lowerMessage.includes('no funciona')) {
+      return {
+        message: 'Entiendo que algo necesita reparación. He notificado a tu casero con los detalles para que pueda atenderte lo antes posible.',
+        category: 'MANTENIMIENTO',
+        needsAttention: true
+      };
+    }
+    
+    // Generic fallback
+    return {
+      message: 'Recibí tu mensaje. Déjame procesarlo y te respondo en breve con la información que necesitas.',
+      category: 'CONSULTA',
+      needsAttention: true
+    };
+  }
 }
+
 
 // ============================================
 // NOTIFY LANDLORD
