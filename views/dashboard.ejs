@@ -4,123 +4,179 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel - Landlord AI</title>
-  <link rel="stylesheet" href="/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dashboard-modern.css">
 </head>
 <body>
-  <div class="dashboard-layout">
+  <div class="dashboard-container">
+    
     <!-- Sidebar -->
     <aside class="sidebar">
-      <h1>🏠 Landlord AI</h1>
+      <div class="logo">
+        <h1><span class="logo-icon">🏠</span> Landlord AI</h1>
+      </div>
+      
       <nav>
-        <a href="/dashboard" class="active">Panel</a>
-        <a href="/dashboard/properties">Propiedades</a>
-        <a href="/dashboard/tenants">Inquilinos</a>
-        <a href="/logout">Cerrar Sesión</a>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="/dashboard" class="nav-link active">
+              <span class="nav-icon">📊</span>
+              Panel
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/properties" class="nav-link">
+              <span class="nav-icon">🏢</span>
+              Propiedades
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/tenants" class="nav-link">
+              <span class="nav-icon">👥</span>
+              Inquilinos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/logout" class="nav-link">
+              <span class="nav-icon">🚪</span>
+              Cerrar Sesión
+            </a>
+          </li>
+        </ul>
       </nav>
-      <div class="sidebar-footer">
+      
+      <div class="sidebar-footer" style="padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-medium);">
         <p><%= landlordName %></p>
       </div>
     </aside>
-    
+
     <!-- Main Content -->
     <main class="main-content">
+      
+      <!-- Header -->
       <header class="dashboard-header">
         <h2>Panel General</h2>
-        <div class="stats">
-          <div class="stat-box">
-            <span class="stat-number"><%= properties.length %></span>
-            <span class="stat-label">Propiedades</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-number"><%= tenants.length %></span>
-            <span class="stat-label">Inquilinos</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-number"><%= messages.length %></span>
-            <span class="stat-label">Mensajes</span>
-          </div>
-        </div>
+        <p class="header-subtitle">Bienvenido a tu centro de administración</p>
       </header>
 
-      <!-- Quick Actions -->
-      <div class="action-bar">
-        <button onclick="showAddTenantModal()" class="btn-primary">+ Agregar Inquilino</button>
-        <button onclick="window.location.href='/dashboard/properties'" class="btn-primary">+ Agregar Propiedad</button>
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Propiedades</div>
+          <div class="stat-value"><%= properties.length %></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Inquilinos</div>
+          <div class="stat-value"><%= tenants.length %></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Mensajes</div>
+          <div class="stat-value"><%= messages.length %></div>
+        </div>
       </div>
 
-      <!-- Tenants Overview -->
-  <!-- Tenants Overview -->
-<% if (tenants.length > 0) { %>
-    <section style="margin-bottom: 2rem;">
-      <h3 style="margin-bottom: 1rem;">Inquilinos Activos</h3>
-      <div class="properties-grid">
-        <% tenants.forEach(tenant => { %>
-          <div class="property-card">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-              <h3><%= tenant.name %></h3>
-              <button 
-                onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" 
-                style="background: #ff3b30; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;"
-                title="Eliminar inquilino">
-                🗑️
-              </button>
-            </div>
-            <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
-            <p><strong>📱</strong> <%= tenant.phone %></p>
-            <% if (tenant.move_in_date) { %>
-              <p><strong>📅</strong> Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
-            <% } %>
-          </div>
-        <% }); %>
+      <!-- Action Buttons -->
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="showAddTenantModal()">
+          <span>➕</span> Agregar Inquilino
+        </button>
+        <button class="btn btn-secondary" onclick="window.location.href='/dashboard/properties'">
+          <span>🏢</span> Agregar Propiedad
+        </button>
       </div>
-    </section>
-  <% } %>
+
+      <!-- Tenants Section -->
+      <% if (tenants.length > 0) { %>
+      <section>
+        <h3 class="section-title">Inquilinos Activos</h3>
+        
+        <div class="tenants-grid">
+          <% tenants.forEach(tenant => { %>
+          <div class="tenant-card">
+            <div class="tenant-header">
+              <div>
+                <h4 class="tenant-name"><%= tenant.name %></h4>
+                <p class="tenant-property">
+                  <span class="tenant-icon">📍</span>
+                  <%= tenant.properties?.address || 'Sin propiedad' %>
+                </p>
+              </div>
+              <button class="delete-btn" onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" title="Eliminar">🗑️</button>
+            </div>
+            
+            <div class="tenant-info">
+              <div class="info-row">
+                <span class="info-icon">📱</span>
+                <span><%= tenant.phone %></span>
+              </div>
+              <% if (tenant.move_in_date) { %>
+              <div class="info-row">
+                <span class="info-icon">📅</span>
+                <span>Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></span>
+              </div>
+              <% } %>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+      </section>
+      <% } %>
+
       <!-- Messages Section -->
       <section>
-        <h3 style="margin-bottom: 1rem;">Mensajes Recientes</h3>
+        <h3 class="section-title">Mensajes Recientes</h3>
+        
         <div class="messages-container">
           <% if (messages.length === 0) { %>
             <div class="empty-state">
-              <p>No hay mensajes todavía. Tus inquilinos pueden enviar mensajes por WhatsApp.</p>
-              <% if (tenants.length > 0) { %>
-                <p style="margin-top: 1rem; color: #666; font-size: 14px;">
-                  📱 Número de WhatsApp: <%= process.env.TWILIO_WHATSAPP_NUMBER || '+1 415 523 8886' %>
-                </p>
-                <p style="color: #666; font-size: 14px;">
-                  ⚠️ Los inquilinos deben enviar "join <sandbox-name>" primero (Twilio Sandbox)
-                </p>
-              <% } %>
+              <div class="empty-icon">💬</div>
+              <h3>No hay mensajes todavía</h3>
+              <p>Tus inquilinos pueden enviar mensajes por WhatsApp</p>
             </div>
           <% } else { %>
             <% messages.forEach(msg => { %>
-              <div class="message-card <%= msg.needs_landlord_attention ? 'urgent' : '' %>">
-                <div class="message-header">
-                  <div>
-                    <strong><%= msg.tenants?.name || 'Inquilino' %></strong>
-                    <span class="message-property"><%= msg.tenants?.properties?.address || 'Propiedad desconocida' %></span>
-                  </div>
-                  <div class="message-meta">
-                    <% if (msg.category) { %>
-                      <span class="message-category <%= msg.category %>"><%= msg.category %></span>
-                    <% } %>
-                    <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX') %></span>
-                  </div>
+            <div class="message-card <%= msg.category ? msg.category.toLowerCase() : '' %>">
+              <div class="message-header">
+                <div class="message-tenant">
+                  <h4 class="tenant-name-msg"><%= msg.tenants?.name || 'Inquilino' %></h4>
+                  <p class="tenant-property-msg">
+                    <span>📍</span>
+                    <%= msg.tenants?.properties?.address || 'Propiedad' %>
+                  </p>
                 </div>
-                <div class="message-body">
-                  <p><strong>Inquilino:</strong> <%= msg.message_body %></p>
-                  <% if (msg.ai_response) { %>
-                    <p><strong>IA:</strong> <%= msg.ai_response %></p>
+                <div class="message-meta">
+                  <% if (msg.category) { %>
+                  <span class="message-category category-<%= msg.category.toLowerCase() %>"><%= msg.category %></span>
                   <% } %>
+                  <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></span>
                 </div>
-                <% if (msg.needs_landlord_attention) { %>
-                  <div class="message-actions">
-                    <button onclick="replyToTenant(this.dataset.phone, this.dataset.name)" data-phone="<%= msg.tenants?.phone || '' %>" data-name="<%= msg.tenants?.name || 'Inquilino' %>" class="btn-reply">Responder</button>
+              </div>
+              
+              <div class="message-content">
+                <div>
+                  <p class="message-label">Inquilino:</p>
+                  <div class="message-text"><%= msg.message_body %></div>
+                </div>
+                
+                <% if (msg.ai_response) { %>
+                <div>
+                  <p class="message-label">Respuesta IA:</p>
+                  <div class="ai-response"><%= msg.ai_response %></div>
+                </div>
                 <% } %>
               </div>
+              
+              <% if (msg.needs_landlord_attention) { %>
+              <button class="respond-btn" onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || 'Inquilino' %>')">
+                Responder
+              </button>
+              <% } %>
+            </div>
             <% }); %>
           <% } %>
         </div>
       </section>
+
     </main>
   </div>
   
@@ -131,7 +187,7 @@
       <h2>Agregar Nuevo Inquilino</h2>
       <% if (properties.length === 0) { %>
         <p style="color: #ef4444; margin-bottom: 1rem;">
-          ⚠️ Primero debes <a href="/dashboard/properties" style="color: #0071e3;">agregar una propiedad</a>
+          ⚠️ Primero debes <a href="/dashboard/properties" style="color: var(--green);">agregar una propiedad</a>
         </p>
       <% } else { %>
         <form action="/dashboard/tenants/add" method="POST">
@@ -144,7 +200,7 @@
             <% }); %>
           </select>
           <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
-          <button type="submit" class="btn-primary">Agregar Inquilino</button>
+          <button type="submit" class="btn btn-primary">Agregar Inquilino</button>
         </form>
       <% } %>
     </div>
@@ -156,7 +212,7 @@
       <span class="close" onclick="closeReplyModal()">&times;</span>
       <h2>Responder a <span id="replyTenantName"></span></h2>
       <textarea id="replyMessage" placeholder="Escribe tu mensaje..." rows="4"></textarea>
-      <button onclick="sendReply()" class="btn-primary">Enviar por WhatsApp</button>
+      <button onclick="sendReply()" class="btn btn-primary">Enviar por WhatsApp</button>
     </div>
   </div>
   
@@ -202,22 +258,22 @@
       }
     }
     
+    function deleteTenant(tenantId, tenantName) {
+      if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/dashboard/tenants/delete/${tenantId}`;
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+    
     // Close modals when clicking outside
     window.onclick = function(event) {
       if (event.target.className === 'modal') {
         event.target.style.display = 'none';
       }
     }
-    function deleteTenant(tenantId, tenantName) {
-  if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
-    // Create a form and submit it
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/dashboard/tenants/delete/${tenantId}`;
-    document.body.appendChild(form);
-    form.submit();
-  }
-}
   </script>
 </body>
 </html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel - Landlord AI</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>🏠 Landlord AI</h1>
+      <nav>
+        <a href="/dashboard" class="active">Panel</a>
+        <a href="/dashboard/properties">Propiedades</a>
+        <a href="/dashboard/tenants">Inquilinos</a>
+        <a href="/logout">Cerrar Sesión</a>
+      </nav>
+      <div class="sidebar-footer">
+        <p><%= landlordName %></p>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="dashboard-header">
+        <h2>Panel General</h2>
+        <div class="stats">
+          <div class="stat-box">
+            <span class="stat-number"><%= properties.length %></span>
+            <span class="stat-label">Propiedades</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number"><%= tenants.length %></span>
+            <span class="stat-label">Inquilinos</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-number"><%= messages.length %></span>
+            <span class="stat-label">Mensajes</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Quick Actions -->
+      <div class="action-bar">
+        <button onclick="showAddTenantModal()" class="btn-primary">+ Agregar Inquilino</button>
+        <button onclick="window.location.href='/dashboard/properties'" class="btn-primary">+ Agregar Propiedad</button>
+      </div>
+
+      <!-- Tenants Overview -->
+  <!-- Tenants Overview -->
+<% if (tenants.length > 0) { %>
+    <section style="margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Inquilinos Activos</h3>
+      <div class="properties-grid">
+        <% tenants.forEach(tenant => { %>
+          <div class="property-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <h3><%= tenant.name %></h3>
+              <button 
+                onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" 
+                style="background: #ff3b30; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;"
+                title="Eliminar inquilino">
+                🗑️
+              </button>
+            </div>
+            <p><strong>📍</strong> <%= tenant.properties?.address || 'Sin propiedad asignada' %></p>
+            <p><strong>📱</strong> <%= tenant.phone %></p>
+            <% if (tenant.move_in_date) { %>
+              <p><strong>📅</strong> Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></p>
+            <% } %>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+  <% } %>
+      <!-- Messages Section -->
+      <section>
+        <h3 style="margin-bottom: 1rem;">Mensajes Recientes</h3>
+        <div class="messages-container">
+          <% if (messages.length === 0) { %>
+            <div class="empty-state">
+              <p>No hay mensajes todavía. Tus inquilinos pueden enviar mensajes por WhatsApp.</p>
+              <% if (tenants.length > 0) { %>
+                <p style="margin-top: 1rem; color: #666; font-size: 14px;">
+                  📱 Número de WhatsApp: <%= process.env.TWILIO_WHATSAPP_NUMBER || '+1 415 523 8886' %>
+                </p>
+                <p style="color: #666; font-size: 14px;">
+                  ⚠️ Los inquilinos deben enviar "join <sandbox-name>" primero (Twilio Sandbox)
+                </p>
+              <% } %>
+            </div>
+          <% } else { %>
+            <% messages.forEach(msg => { %>
+              <div class="message-card <%= msg.needs_landlord_attention ? 'urgent' : '' %>">
+                <div class="message-header">
+                  <div>
+                    <strong><%= msg.tenants?.name || 'Inquilino' %></strong>
+                    <span class="message-property"><%= msg.tenants?.properties?.address || 'Propiedad desconocida' %></span>
+                  </div>
+                  <div class="message-meta">
+                    <% if (msg.category) { %>
+                      <span class="message-category <%= msg.category %>"><%= msg.category %></span>
+                    <% } %>
+                    <span class="message-time"><%= new Date(msg.created_at).toLocaleString('es-MX') %></span>
+                  </div>
+                </div>
+                <div class="message-body">
+                  <p><strong>Inquilino:</strong> <%= msg.message_body %></p>
+                  <% if (msg.ai_response) { %>
+                    <p><strong>IA:</strong> <%= msg.ai_response %></p>
+                  <% } %>
+                </div>
+                <% if (msg.needs_landlord_attention) { %>
+                  <div class="message-actions">
+                    <button onclick="replyToTenant(this.dataset.phone, this.dataset.name)" data-phone="<%= msg.tenants?.phone || '' %>" data-name="<%= msg.tenants?.name || 'Inquilino' %>" class="btn-reply">Responder</button>
+                <% } %>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <!-- Add Tenant Modal -->
+  <div id="addTenantModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Agregar Nuevo Inquilino</h2>
+      <% if (properties.length === 0) { %>
+        <p style="color: #ef4444; margin-bottom: 1rem;">
+          ⚠️ Primero debes <a href="/dashboard/properties" style="color: #0071e3;">agregar una propiedad</a>
+        </p>
+      <% } else { %>
+        <form action="/dashboard/tenants/add" method="POST">
+          <input type="text" name="name" placeholder="Nombre del Inquilino" required>
+          <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
+          <select name="property_id" required>
+            <option value="">Seleccionar Propiedad</option>
+            <% properties.forEach(prop => { %>
+              <option value="<%= prop.id %>"><%= prop.address %></option>
+            <% }); %>
+          </select>
+          <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
+          <button type="submit" class="btn-primary">Agregar Inquilino</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+  
+  <!-- Reply Modal -->
+  <div id="replyModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeReplyModal()">&times;</span>
+      <h2>Responder a <span id="replyTenantName"></span></h2>
+      <textarea id="replyMessage" placeholder="Escribe tu mensaje..." rows="4"></textarea>
+      <button onclick="sendReply()" class="btn-primary">Enviar por WhatsApp</button>
+    </div>
+  </div>
+  
+  <script>
+    let currentTenantPhone = '';
+    
+    function showAddTenantModal() {
+      document.getElementById('addTenantModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+      document.getElementById('addTenantModal').style.display = 'none';
+    }
+    
+    function replyToTenant(phone, name) {
+      currentTenantPhone = phone;
+      document.getElementById('replyTenantName').textContent = name;
+      document.getElementById('replyModal').style.display = 'block';
+    }
+    
+    function closeReplyModal() {
+      document.getElementById('replyModal').style.display = 'none';
+      document.getElementById('replyMessage').value = '';
+    }
+    
+    async function sendReply() {
+      const message = document.getElementById('replyMessage').value;
+      if (!message) return alert('Por favor escribe un mensaje');
+      
+      const response = await fetch('/dashboard/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_phone: currentTenantPhone, message })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        alert('¡Mensaje enviado!');
+        closeReplyModal();
+        location.reload();
+      } else {
+        alert('Error al enviar mensaje: ' + result.error);
+      }
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+      }
+    }
+    function deleteTenant(tenantId, tenantName) {
+  if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+    // Create a form and submit it
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/dashboard/tenants/delete/${tenantId}`;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+  </script>
+</body>
+</html>
