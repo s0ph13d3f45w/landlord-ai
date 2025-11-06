@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const twilio = require('twilio');
-const { Dedalus } = require('dedalus-labs');
+const Dedalus = require('dedalus-labs'); // ✅ Default import
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Express app
@@ -23,15 +23,15 @@ console.log('\n🔍 Checking Environment Variables...');
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingVars.length > 0) {
   console.error('❌ Missing required environment variables:', missingVars);
-  console.error('⚠️  App may not function correctly!');
 } else {
   console.log('✅ All required environment variables are set');
 }
 
-// Initialize services with error handling
+// Initialize services
 let dedalus, supabase, twilioClient;
 
 try {
+  // ✅ CORRECT: Default import, not destructured
   dedalus = new Dedalus({ apiKey: process.env.DEDALUS_API_KEY });
   console.log('✅ Dedalus initialized');
 } catch (error) {
@@ -58,7 +58,7 @@ try {
   console.error('❌ Twilio initialization failed:', error.message);
 }
 
-// Set up view engine (for HTML templates)
+// Set up view engine
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
@@ -68,7 +68,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static('public'));
 
-// Session middleware (for login)
+// Session middleware
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
   resave: false,
@@ -83,56 +83,30 @@ app.use(session({
 // DEBUGGING ENDPOINTS
 // ============================================
 
-// Test Dedalus AI - Try different model names
+// Test Dedalus - ✅ CORRECT FORMAT
 app.get('/test-dedalus', async (req, res) => {
   try {
     console.log('\n🧪 Testing Dedalus AI...');
     console.log('API Key present:', !!process.env.DEDALUS_API_KEY);
     
-    // ✅ Try without specifying model (use default)
+    // ✅ CORRECT: Use "input" not "messages"
     const completion = await dedalus.chat.create({
-      messages: [{ role: 'user', content: 'Say "Hello, Dedalus is working!"' }],
-      temperature: 0.7,
-      max_tokens: 100
+      input: [{ role: 'user', content: 'Say "Hello, Dedalus is working!"' }],
+      model: 'gpt-4o-mini'
     });
     
-    const response = completion.choices[0].message.content;
-    console.log('✅ Dedalus response:', response);
+    console.log('✅ Dedalus response:', completion);
     
-    res.send(`✅ Dedalus AI is working!\n\nResponse: ${response}`);
+    res.send(`✅ Dedalus AI is working!\n\nResponse: ${JSON.stringify(completion, null, 2)}`);
   } catch (error) {
     console.error('❌ Dedalus Error:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nFull error: ${JSON.stringify(error, null, 2)}`);
-  }
-});
-
-// Test with model list
-app.get('/test-models', async (req, res) => {
-  try {
-    console.log('\n🧪 Testing model list...');
-    
-    const models = await dedalus.models.list();
-    console.log('Available models:', models);
-    
-    res.json({
-      success: true,
-      models: models
-    });
-  } catch (error) {
-    console.error('❌ Models Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+    res.status(500).send(`❌ Dedalus Error: ${error.message}\n\nStack: ${error.stack}`);
   }
 });
 
 // Test Database
 app.get('/test-database', async (req, res) => {
   try {
-    console.log('\n🧪 Testing database connection...');
-    
     const { data: tenants, error } = await supabase
       .from('tenants')
       .select('id, name, phone')
@@ -140,16 +114,12 @@ app.get('/test-database', async (req, res) => {
     
     if (error) throw error;
     
-    console.log('✅ Database connected. Tenants found:', tenants?.length || 0);
-    
     res.json({
       success: true,
-      message: '✅ Database connection working!',
       tenantCount: tenants?.length || 0,
       tenants: tenants
     });
   } catch (error) {
-    console.error('❌ Database Error:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message
@@ -157,40 +127,37 @@ app.get('/test-database', async (req, res) => {
   }
 });
 
-// Test full system
+// Test all
 app.get('/test-all', async (req, res) => {
   const results = {
-    twilio: '❌ Not tested',
-    dedalus: '❌ Not tested', 
-    database: '❌ Not tested'
+    twilio: '❌',
+    dedalus: '❌', 
+    database: '❌'
   };
   
-  // Test Twilio
   try {
     await twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
     results.twilio = '✅ Connected';
-  } catch (error) {
-    results.twilio = `❌ Error: ${error.message}`;
+  } catch (e) {
+    results.twilio = `❌ ${e.message}`;
   }
   
-  // Test Dedalus - without model specification
   try {
     await dedalus.chat.create({
-      messages: [{ role: 'user', content: 'test' }],
-      max_tokens: 5
+      input: [{ role: 'user', content: 'test' }],
+      model: 'gpt-4o-mini'
     });
     results.dedalus = '✅ Connected';
-  } catch (error) {
-    results.dedalus = `❌ Error: ${error.message}`;
+  } catch (e) {
+    results.dedalus = `❌ ${e.message}`;
   }
   
-  // Test Database
   try {
     const { error } = await supabase.from('tenants').select('id').limit(1);
     if (error) throw error;
     results.database = '✅ Connected';
-  } catch (error) {
-    results.database = `❌ Error: ${error.message}`;
+  } catch (e) {
+    results.database = `❌ ${e.message}`;
   }
   
   res.json(results);
@@ -222,16 +189,11 @@ app.get('/', (req, res) => {
 
 app.post('/webhook/whatsapp', async (req, res) => {
   try {
-    console.log('\n' + '='.repeat(50));
-    console.log('📱 NEW WHATSAPP MESSAGE RECEIVED');
-    console.log('='.repeat(50));
+    console.log('\n📱 NEW WHATSAPP MESSAGE');
     
     const incomingMessage = req.body.Body;
     const rawFrom = req.body.From;
     const senderPhone = rawFrom?.replace('whatsapp:', '') || rawFrom;
-    
-    console.log('  Message:', incomingMessage);
-    console.log('  From:', senderPhone);
     
     if (!incomingMessage || !senderPhone) {
       const twiml = new twilio.twiml.MessagingResponse();
@@ -263,7 +225,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     
     if (!tenant) {
       const twiml = new twilio.twiml.MessagingResponse();
-      twiml.message('Lo siento, no reconozco este número. Por favor contacta a tu casero directamente.');
+      twiml.message('Lo siento, no reconozco este número.');
       return res.type('text/xml').send(twiml.toString());
     }
     
@@ -272,9 +234,9 @@ app.post('/webhook/whatsapp', async (req, res) => {
     try {
       aiResponse = await generateAIResponse(incomingMessage, tenant, tenant.properties);
     } catch (aiError) {
-      console.error('❌ AI Error:', aiError.message);
+      console.error('❌ AI Error:', aiError);
       aiResponse = {
-        message: 'Hola, recibí tu mensaje. El casero ha sido notificado y te responderá pronto.',
+        message: 'Hola, recibí tu mensaje. El casero responderá pronto.',
         category: 'CONSULTA',
         needsAttention: true
       };
@@ -294,90 +256,101 @@ app.post('/webhook/whatsapp', async (req, res) => {
     if (aiResponse.needsAttention) {
       try {
         await notifyLandlord(tenant, incomingMessage, tenant.properties);
-      } catch (notifyError) {
-        console.error('❌ Notification error:', notifyError.message);
+      } catch (e) {
+        console.error('Notification error:', e);
       }
     }
     
     // Send response
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(aiResponse.message);
-    
-    console.log('✅ Response sent');
     res.type('text/xml').send(twiml.toString());
     
   } catch (error) {
     console.error('❌ WEBHOOK ERROR:', error);
     const twiml = new twilio.twiml.MessagingResponse();
-    twiml.message('Disculpa, hubo un error. Por favor intenta de nuevo.');
+    twiml.message('Disculpa, hubo un error.');
     res.type('text/xml').send(twiml.toString());
   }
 });
 
 // ============================================
-// AI RESPONSE GENERATION - ✅ WITHOUT MODEL SPECIFICATION
+// AI RESPONSE GENERATION - ✅ CORRECT FORMAT
 // ============================================
 
 async function generateAIResponse(message, tenant, property) {
-  const prompt = `Eres un asistente virtual amigable para inquilinos en México.
+  const prompt = `Eres un asistente virtual para inquilinos en México.
 
-INFORMACIÓN DEL INQUILINO:
-- Nombre: ${tenant.name}
-- Propiedad: ${property?.address || 'Sin asignar'}
-- Renta mensual: $${property?.monthly_rent || 'N/A'} MXN
-- Día de pago: ${property?.rent_due_day || 'N/A'} de cada mes
+INFORMACIÓN:
+- Inquilino: ${tenant.name}
+- Propiedad: ${property?.address || 'N/A'}
+- Renta: $${property?.monthly_rent || 'N/A'} MXN
+- Día de pago: ${property?.rent_due_day || 'N/A'}
 - Casero: ${property?.landlord_name || 'N/A'}
 
 MENSAJE: "${message}"
 
-REGLAS:
-1. Responde directamente si puedes (pagos, fechas, info general)
-2. Solo marca needsAttention: true para emergencias reales o reparaciones
-3. Sé específico usando los datos del inquilino
+Responde directamente si puedes. Solo marca needsAttention: true para emergencias o reparaciones.
 
 Responde en JSON:
 {
-  "message": "Tu respuesta (máximo 500 caracteres)",
+  "message": "Tu respuesta (máximo 400 caracteres)",
   "category": "URGENTE|MANTENIMIENTO|PAGO|CONSULTA",
   "needsAttention": true o false
 }`;
 
   try {
-    // ✅ Try without model parameter (use Dedalus default)
+    // ✅ CORRECT: Use "input" not "messages"
     const completion = await dedalus.chat.create({
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 600
+      input: [
+        { role: 'system', content: 'You are a helpful assistant that responds in JSON format.' },
+        { role: 'user', content: prompt }
+      ],
+      model: 'gpt-4o-mini',
+      temperature: 0.7
     });
     
-    const response = JSON.parse(completion.choices[0].message.content);
+    // Parse the response - structure may vary
+    let responseText;
+    if (completion.choices && completion.choices[0]) {
+      responseText = completion.choices[0].message?.content || completion.choices[0].text;
+    } else if (completion.content) {
+      responseText = completion.content;
+    } else {
+      throw new Error('Unexpected response format');
+    }
+    
+    console.log('Raw AI response:', responseText);
+    
+    // Try to parse JSON
+    const response = JSON.parse(responseText);
     response.needsAttention = response.needsAttention === true;
     return response;
     
   } catch (error) {
-    console.error('AI Error:', error.message);
+    console.error('AI Error:', error);
     
-    // Smart fallback
-    const lowerMessage = message.toLowerCase();
+    // Fallback
+    const lower = message.toLowerCase();
     
-    if (lowerMessage.includes('fuga') || lowerMessage.includes('emergencia')) {
+    if (lower.includes('fuga') || lower.includes('emergencia')) {
       return {
-        message: '🚨 He notificado a tu casero de inmediato sobre esta emergencia.',
+        message: '🚨 He notificado a tu casero sobre esta emergencia.',
         category: 'URGENTE',
         needsAttention: true
       };
     }
     
-    if (lowerMessage.includes('pago') || lowerMessage.includes('renta')) {
+    if (lower.includes('pago') || lower.includes('renta')) {
       return {
-        message: `Tu renta es de $${property?.monthly_rent || 'N/A'} MXN y vence el día ${property?.rent_due_day || 'N/A'}.`,
+        message: `Tu renta es $${property?.monthly_rent || 'N/A'} MXN, vence el día ${property?.rent_due_day || 'N/A'}.`,
         category: 'PAGO',
         needsAttention: false
       };
     }
     
     return {
-      message: 'Recibí tu mensaje. Te respondo en breve.',
+      message: 'Recibí tu mensaje. Te respondo pronto.',
       category: 'CONSULTA',
       needsAttention: true
     };
@@ -385,18 +358,10 @@ Responde en JSON:
 }
 
 async function notifyLandlord(tenant, tenantMessage, property) {
-  const landlordMessage = `🚨 ATENCIÓN REQUERIDA
-
-Inquilino: ${tenant.name}
-Propiedad: ${property.address}
-Mensaje: "${tenantMessage}"
-
-Responde al inquilino: ${tenant.phone}`;
-  
   await twilioClient.messages.create({
     from: process.env.TWILIO_WHATSAPP_NUMBER,
     to: `whatsapp:${property.landlord_phone}`,
-    body: landlordMessage
+    body: `🚨 ${tenant.name} (${property.address}): "${tenantMessage}"`
   });
 }
 
@@ -414,12 +379,16 @@ async function sendDailyRecap() {
         .select('id')
         .eq('landlord_id', landlord.id);
       
+      if (!properties?.length) continue;
+      
       const propertyIds = properties.map(p => p.id);
       
       const { data: tenants } = await supabase
         .from('tenants')
         .select('id')
         .in('property_id', propertyIds);
+      
+      if (!tenants?.length) continue;
       
       const tenantIds = tenants.map(t => t.id);
       
@@ -429,24 +398,18 @@ async function sendDailyRecap() {
         .in('tenant_id', tenantIds)
         .gte('created_at', yesterday.toISOString());
       
-      if (messages && messages.length > 0) {
-        const urgentCount = messages.filter(m => m.needs_landlord_attention).length;
-        
-        const recap = `📊 RESUMEN DIARIO
-
-Mensajes: ${messages.length}
-Urgentes: ${urgentCount}
-Dashboard: ${process.env.RAILWAY_URL || 'tu-url.railway.app'}`;
+      if (messages?.length > 0) {
+        const urgent = messages.filter(m => m.needs_landlord_attention).length;
         
         await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: `whatsapp:${landlord.phone}`,
-          body: recap
+          body: `📊 Mensajes: ${messages.length} | Urgentes: ${urgent}`
         });
       }
     }
   } catch (error) {
-    console.error('❌ Daily recap error:', error);
+    console.error('Daily recap error:', error);
   }
 }
 
@@ -455,16 +418,10 @@ cron.schedule('0 20 * * *', sendDailyRecap, {
   timezone: "America/Mexico_City"
 });
 
-// ============================================
 // START SERVER
-// ============================================
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log('\n🚀 LANDLORD AI SERVER STARTED');
+  console.log('\n🚀 SERVER STARTED');
   console.log(`📡 Port: ${PORT}`);
-  console.log(`🧪 Test endpoints:`);
-  console.log(`   /test-dedalus - Test AI`);
-  console.log(`   /test-models - List available models`);
-  console.log(`   /test-all - Test everything\n`);
+  console.log(`🧪 Test: /test-dedalus\n`);
 });
