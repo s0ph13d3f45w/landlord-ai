@@ -1,6 +1,6 @@
 flask==3.0.0
 twilio==8.10.0
 supabase==2.3.0
-dedalus==0.1.0
+dedalus_labs
 python-dotenv==1.0.0
 bcrypt==4.1.2
