@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const twilio = require('twilio');
-const { Dedalus } = require('dedalus-labs');
+const dedalusLabs = require('dedalus-labs'); // ✅ FIXED: Correct import
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Express app
@@ -29,13 +29,14 @@ if (missingVars.length > 0) {
 }
 
 // Initialize services with error handling
-let dedalus, supabase, twilioClient;
+let supabase, twilioClient;
 
+// ✅ FIXED: Configure Dedalus properly
 try {
-  dedalus = new Dedalus({ apiKey: process.env.DEDALUS_API_KEY });
-  console.log('✅ Dedalus initialized');
+  dedalusLabs.configure({ apiKey: process.env.DEDALUS_API_KEY });
+  console.log('✅ Dedalus configured with API key');
 } catch (error) {
-  console.error('❌ Dedalus initialization failed:', error.message);
+  console.error('❌ Dedalus configuration failed:', error.message);
 }
 
 try {
@@ -112,7 +113,8 @@ app.get('/test-dedalus', async (req, res) => {
     console.log('\n🧪 Testing Dedalus AI...');
     console.log('API Key present:', !!process.env.DEDALUS_API_KEY);
     
-    const completion = await dedalus.chat.completions.create({
+    // ✅ FIXED: Use correct method call
+    const completion = await dedalusLabs.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'Say "Hello, Dedalus is working!"' }],
       temperature: 0.7
@@ -177,7 +179,7 @@ app.get('/test-all', async (req, res) => {
   
   // Test Dedalus
   try {
-    await dedalus.chat.completions.create({
+    await dedalusLabs.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: 'test' }],
       max_tokens: 5
@@ -402,7 +404,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
 });
 
 // ============================================
-// AI RESPONSE GENERATION
+// AI RESPONSE GENERATION - ✅ FIXED
 // ============================================
 
 async function generateAIResponse(message, tenant, property) {
@@ -448,7 +450,8 @@ Responde en JSON:
   console.log('  Sending prompt to Dedalus (length:', prompt.length, 'chars)');
 
   try {
-    const completion = await dedalus.chat.completions.create({
+    // ✅ FIXED: Use correct method call
+    const completion = await dedalusLabs.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
