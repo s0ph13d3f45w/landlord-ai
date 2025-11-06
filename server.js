@@ -83,16 +83,60 @@ app.post('/webhook/whatsapp', async (req, res) => {
     let category = 'CONSULTA';
     
     try {
-      const prompt = `Responde en JSON: {"message":"tu respuesta","category":"URGENTE|MANTENIMIENTO|PAGO|CONSULTA","needsAttention":true/false}
+      // ✅ IMPROVED PROMPT - Natural, conversational, Mexican Spanish
+      const prompt = `Eres un asistente virtual MUY amigable y natural para inquilinos en México. 
 
-Inquilino: ${tenant.name}
-Renta: $${tenant.properties?.monthly_rent} el día ${tenant.properties?.rent_due_day}
-Mensaje: "${message}"`;
+IMPORTANTE: 
+- Habla como un mexicano real, de manera casual y amigable
+- NO uses emojis innecesarios ni formateo especial
+- NO repitas el mensaje del usuario
+- Responde DIRECTAMENTE a la pregunta
+- Sé breve (máximo 2-3 oraciones)
+- Si puedes resolver la duda, resuélvela - NO digas solo "te respondo pronto"
+
+DATOS DEL INQUILINO:
+- Nombre: ${tenant.name}
+- Propiedad: ${tenant.properties?.address || 'N/A'}
+- Renta mensual: $${tenant.properties?.monthly_rent || 'N/A'} MXN
+- Día de vencimiento: día ${tenant.properties?.rent_due_day || 'N/A'} de cada mes
+- Casero: ${tenant.properties?.landlord_name || 'N/A'}
+- Instrucciones especiales: ${tenant.properties?.special_instructions || 'Ninguna'}
+
+MENSAJE DEL INQUILINO: "${message}"
+
+REGLAS PARA needsAttention:
+- Si es sobre PAGOS, FECHAS, REGLAS de la casa → needsAttention: false (puedes responder directamente)
+- Si es EMERGENCIA real (fuga grave, incendio, robo) → needsAttention: true
+- Si necesita REPARACIÓN física → needsAttention: true
+- Si es pregunta sobre PERMITIR algo nuevo (mascotas, visitas largas) → needsAttention: true
+
+CATEGORÍAS:
+- URGENTE: Solo emergencias de seguridad/salud
+- MANTENIMIENTO: Reparaciones o fallas
+- PAGO: Preguntas sobre renta, pagos, transferencias
+- CONSULTA: Preguntas generales, reglas, dudas
+
+EJEMPLOS DE RESPUESTAS NATURALES:
+❌ MAL: "🚨 X101: Hola, cuando tengo que pagar"
+✅ BIEN: "Hola! Tu renta de $30,000 vence el día 1 de cada mes. ¿Necesitas los datos para transferencia?"
+
+❌ MAL: "Recibí tu mensaje. Te respondo pronto."
+✅ BIEN: "Claro! Puedes tener mascotas pequeñas, solo avísale a tu casero antes. Te contacto con él para confirmar los detalles."
+
+❌ MAL: "Inquilino: Juan..."
+✅ BIEN: Solo responde naturalmente sin repetir info
+
+Responde SOLO en este formato JSON (sin markdown, sin \`\`\`):
+{"message":"tu respuesta natural y directa","category":"URGENTE|MANTENIMIENTO|PAGO|CONSULTA","needsAttention":true o false}`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' }
+        messages: [
+          { role: 'system', content: 'Eres un asistente amigable que habla español mexicano natural. Respondes en JSON sin markdown.' },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.8
       });
       
       const parsed = JSON.parse(completion.choices[0].message.content);
@@ -101,6 +145,27 @@ Mensaje: "${message}"`;
       category = parsed.category;
     } catch (e) {
       console.error('AI error:', e);
+      
+      // Smart fallback based on keywords
+      const lower = message.toLowerCase();
+      
+      if (lower.includes('pago') || lower.includes('pagar') || lower.includes('renta') || lower.includes('cuanto')) {
+        aiReply = `Hola! Tu renta es de $${tenant.properties?.monthly_rent || 'N/A'} y vence el día ${tenant.properties?.rent_due_day || 'N/A'} de cada mes. ¿Necesitas los datos de transferencia?`;
+        needsAttention = false;
+        category = 'PAGO';
+      } else if (lower.includes('fuga') || lower.includes('emergencia') || lower.includes('incendio')) {
+        aiReply = 'Ya le avisé a tu casero sobre esto. Te contactará lo antes posible.';
+        needsAttention = true;
+        category = 'URGENTE';
+      } else if (lower.includes('mascota') || lower.includes('perro') || lower.includes('gato')) {
+        aiReply = 'Déjame preguntarle a tu casero sobre las mascotas y te confirmo!';
+        needsAttention = true;
+        category = 'CONSULTA';
+      } else {
+        aiReply = 'Recibí tu mensaje, déjame verificar y te respondo en breve.';
+        needsAttention = true;
+        category = 'CONSULTA';
+      }
     }
     
     // Save
@@ -118,7 +183,7 @@ Mensaje: "${message}"`;
       await twilioClient.messages.create({
         from: process.env.TWILIO_WHATSAPP_NUMBER,
         to: `whatsapp:${tenant.properties.landlord_phone}`,
-        body: `🚨 ${tenant.name}: "${message}"`
+        body: `🚨 ATENCIÓN REQUERIDA\n\nInquilino: ${tenant.name}\nPropiedad: ${tenant.properties.address}\n\nMensaje: "${message}"\n\nResponde directo: ${tenant.phone}`
       });
     }
     
