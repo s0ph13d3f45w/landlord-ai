@@ -122,7 +122,7 @@ Usuario: "cuando tengo que pagar?"
 ❌ MAL: "Nel we, el día que sea" (no profesional)
 
 Usuario: "hay una fuga de agua en el baño"
-✅ BIEN: "Entendido. Ya contacté al plomero y debería llegar hoy en la tarde o mañana por la mañana. Te confirmo en cuanto tenga el horario exacto."
+✅ BIEN: "Entendido, ya estoy contactando al plomero. Dame un momento y te confirmo."
 ❌ MAL: "ay no que mal!! ahorita lo veo" (poco profesional)
 
 Usuario: "el vecino hace mucho ruido"
@@ -183,7 +183,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
         needsAttention = false;
         category = 'PAGO';
       } else if (lower.includes('fuga') || lower.includes('emergencia') || lower.includes('incendio') || lower.includes('gas')) {
-        aiReply = 'Entendido, es urgente. Ya notifiqué al propietario y te contactará lo antes posible.';
+        aiReply = 'Entendido, es urgente. Ya estoy contactando al técnico correspondiente.';
         needsAttention = true;
         category = 'URGENTE';
       } else if (lower.includes('mascota') || lower.includes('perro') || lower.includes('gato')) {
@@ -191,7 +191,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
         needsAttention = false;
         category = 'CONSULTA';
       } else if (lower.includes('reparar') || lower.includes('arreglar') || lower.includes('roto') || lower.includes('descompuesto')) {
-        aiReply = 'Perfecto, ya lo reporté. El técnico debería contactarte en las próximas 24 horas.';
+        aiReply = 'Perfecto, ya lo reporté. Déjame contactar al técnico y te confirmo el horario.';
         needsAttention = true;
         category = 'MANTENIMIENTO';
       } else if (lower.includes('fumar') || lower.includes('cigarro')) {
@@ -224,19 +224,67 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
     twiml.message(aiReply);
     res.type('text/xml').send(twiml.toString());
     
-    // Notify landlord separately if urgent (after responding to tenant)
-    if (needsAttention && tenant.properties?.landlord_phone) {
+    // Send realistic follow-up message for urgent issues (10 seconds later)
+    if (needsAttention) {
       setTimeout(async () => {
         try {
-          await twilioClient.messages.create({
-            from: process.env.TWILIO_WHATSAPP_NUMBER,
-            to: `whatsapp:${tenant.properties.landlord_phone}`,
-            body: `🚨 URGENTE - ${tenant.name}\n📍 ${tenant.properties.address}\n\n💬 Mensaje: "${message}"\n\n🤖 Respuesta enviada: "${aiReply}"\n\n⚠️ Requiere tu atención`
-          });
+          // Generate realistic follow-up based on category
+          let followUpMessage = '';
+          
+          if (category === 'URGENTE' || category === 'MANTENIMIENTO') {
+            // Get appropriate professional based on the issue
+            const lower = message.toLowerCase();
+            let professional = 'el técnico';
+            let professionalName = 'Rosendo';
+            let timeSlot = '10:00 am';
+            
+            if (lower.includes('fuga') || lower.includes('agua') || lower.includes('tubería') || lower.includes('baño')) {
+              professional = 'el plomero';
+              professionalName = 'Rosendo';
+              timeSlot = '10:00 am';
+            } else if (lower.includes('luz') || lower.includes('eléctric') || lower.includes('corriente') || lower.includes('apagón')) {
+              professional = 'el electricista';
+              professionalName = 'Miguel';
+              timeSlot = '2:00 pm';
+            } else if (lower.includes('gas')) {
+              professional = 'el técnico de gas';
+              professionalName = 'Carlos';
+              timeSlot = '11:30 am';
+            } else if (lower.includes('clima') || lower.includes('aire') || lower.includes('calefacción')) {
+              professional = 'el técnico de clima';
+              professionalName = 'Javier';
+              timeSlot = '3:00 pm';
+            } else if (lower.includes('puerta') || lower.includes('cerradura') || lower.includes('llave')) {
+              professional = 'el cerrajero';
+              professionalName = 'Antonio';
+              timeSlot = '1:00 pm';
+            }
+            
+            followUpMessage = `Listo, ya hablé con ${professional}. Está disponible a las ${timeSlot} y pasará a revisar. Su nombre es ${professionalName}. Me cuentas cómo va todo, y no te preocupes, yo me encargo de pagarle.`;
+          }
+          
+          if (followUpMessage) {
+            // Send follow-up to tenant
+            await twilioClient.messages.create({
+              from: process.env.TWILIO_WHATSAPP_NUMBER,
+              to: `whatsapp:${phone}`,
+              body: followUpMessage
+            });
+            
+            // Save follow-up message to database
+            await supabase.from('messages').insert({
+              tenant_id: tenant.id,
+              direction: 'outgoing',
+              message_body: followUpMessage,
+              category: category,
+              ai_response: null,
+              needs_landlord_attention: false
+            });
+          }
         } catch (e) {
-          console.error('Error notifying landlord:', e);
+          console.error('Error sending follow-up:', e);
         }
-      }, 1000);
+      }, 10000); // 10 seconds delay
     }
     
   } catch (e) {
@@ -247,4 +295,4 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
   }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('🚀 Server running'));
+app.listen(process.env.PORT || 3000, () => console.log('🚀 Server running')); 
