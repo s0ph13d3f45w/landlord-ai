@@ -91,7 +91,7 @@
         <h3 class="section-title">Inquilinos Activos</h3>
         
         <div class="tenants-grid">
-          <% tenants.forEach(tenant => { %>
+          <% tenants.forEach(function(tenant) { %>
           <div class="tenant-card">
             <div class="tenant-header">
               <div>
@@ -134,7 +134,7 @@
               <p>Tus inquilinos pueden enviar mensajes por WhatsApp</p>
             </div>
           <% } else { %>
-            <% messages.forEach(msg => { %>
+            <% messages.forEach(function(msg) { %>
             <div class="message-card <%= msg.category ? msg.category.toLowerCase() : '' %>">
               <div class="message-header">
                 <div class="message-tenant">
@@ -167,7 +167,7 @@
               </div>
               
               <% if (msg.needs_landlord_attention) { %>
-                <button class="respond-btn" onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || &quot;Inquilino&quot; %>')">
+              <button class="respond-btn" data-phone="<%= msg.tenants?.phone || '' %>" data-name="<%= msg.tenants?.name || 'Inquilino' %>" onclick="replyToTenant(this.getAttribute('data-phone'), this.getAttribute('data-name'))">
                 Responder
               </button>
               <% } %>
@@ -195,7 +195,7 @@
           <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
           <select name="property_id" required>
             <option value="">Seleccionar Propiedad</option>
-            <% properties.forEach(prop => { %>
+            <% properties.forEach(function(prop) { %>
               <option value="<%= prop.id %>"><%= prop.address %></option>
             <% }); %>
           </select>
@@ -245,7 +245,7 @@
       const response = await fetch('/dashboard/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_phone: currentTenantPhone, message })
+        body: JSON.stringify({ tenant_phone: currentTenantPhone, message: message })
       });
       
       const result = await response.json();
@@ -259,16 +259,15 @@
     }
     
     function deleteTenant(tenantId, tenantName) {
-      if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+      if (confirm('¿Estás seguro que quieres eliminar a ' + tenantName + '?\n\nEsto también eliminará todos sus mensajes.')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/dashboard/tenants/delete/${tenantId}`;
+        form.action = '/dashboard/tenants/delete/' + tenantId;
         document.body.appendChild(form);
         form.submit();
       }
     }
     
-    // Close modals when clicking outside
     window.onclick = function(event) {
       if (event.target.className === 'modal') {
         event.target.style.display = 'none';

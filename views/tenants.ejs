@@ -70,7 +70,7 @@
             <p>¡Agrega tu primer inquilino para comenzar!</p>
           </div>
         <% } else { %>
-          <% tenants.forEach(tenant => { %>
+          <% tenants.forEach(function(tenant) { %>
             <div class="tenant-card">
               <div class="tenant-header">
                 <div>
@@ -129,7 +129,7 @@
           <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
           <select name="property_id" required>
             <option value="">Seleccionar Propiedad</option>
-            <% properties.forEach(prop => { %>
+            <% properties.forEach(function(prop) { %>
               <option value="<%= prop.id %>"><%= prop.address %></option>
             <% }); %>
           </select>
@@ -150,16 +150,15 @@
     }
     
     function deleteTenant(tenantId, tenantName) {
-      if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+      if (confirm('¿Estás seguro que quieres eliminar a ' + tenantName + '?\n\nEsto también eliminará todos sus mensajes.')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/dashboard/tenants/delete/${tenantId}`;
+        form.action = '/dashboard/tenants/delete/' + tenantId;
         document.body.appendChild(form);
         form.submit();
       }
     }
     
-    // Close modals when clicking outside
     window.onclick = function(event) {
       if (event.target.className === 'modal') {
         event.target.style.display = 'none';
