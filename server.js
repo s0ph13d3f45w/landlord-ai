@@ -209,7 +209,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
       }
     }
     
-    // Save message
+    // Save incoming message
     await supabase.from('messages').insert({
       tenant_id: tenant.id,
       direction: 'incoming',
@@ -219,19 +219,25 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
       needs_landlord_attention: needsAttention
     });
     
-    // Notify landlord if urgent
-    if (needsAttention && tenant.properties?.landlord_phone) {
-      await twilioClient.messages.create({
-        from: process.env.TWILIO_WHATSAPP_NUMBER,
-        to: `whatsapp:${tenant.properties.landlord_phone}`,
-        body: `🚨 ${tenant.name} - ${tenant.properties.address}\n\n"${message}"\n\nRespuesta enviada: "${aiReply}"`
-      });
-    }
-    
-    // Send reply to tenant
+    // Send normal conversational reply to tenant
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(aiReply);
     res.type('text/xml').send(twiml.toString());
+    
+    // Notify landlord separately if urgent (after responding to tenant)
+    if (needsAttention && tenant.properties?.landlord_phone) {
+      setTimeout(async () => {
+        try {
+          await twilioClient.messages.create({
+            from: process.env.TWILIO_WHATSAPP_NUMBER,
+            to: `whatsapp:${tenant.properties.landlord_phone}`,
+            body: `🚨 URGENTE - ${tenant.name}\n📍 ${tenant.properties.address}\n\n💬 Mensaje: "${message}"\n\n🤖 Respuesta enviada: "${aiReply}"\n\n⚠️ Requiere tu atención`
+          });
+        } catch (e) {
+          console.error('Error notifying landlord:', e);
+        }
+      }, 1000);
+    }
     
   } catch (e) {
     console.error('Webhook error:', e);
