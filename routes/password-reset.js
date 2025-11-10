@@ -68,7 +68,7 @@ router.post('/forgot-password', async (req, res) => {
         subject: 'Recupera tu contraseña - Landlord AI',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #0071e3;">🏠 Landlord AI</h1>
+            <h1 style="color: #0071e3;">🏠 SuperAdmin AI</h1>
             <h2>Recuperación de Contraseña</h2>
             <p>Hola ${landlord.name},</p>
             <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para crear una nueva contraseña:</p>
