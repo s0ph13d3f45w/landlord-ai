@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel - Landlord AI</title>
+  <title>Panel - SuperAdmin AI</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard-modern.css">
 </head>
@@ -13,7 +13,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="logo">
-        <h1><span class="logo-icon">🏠</span> Landlord AI</h1>
+        <h1><span class="logo-icon">🏠</span> SuperAdmin AI</h1>
       </div>
       
       <nav>
@@ -45,7 +45,7 @@
         </ul>
       </nav>
       
-      <div class="sidebar-footer" style="padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-medium);">
+      <div class="sidebar-footer" style="padding: 1rem 2rem; margin-top: auto; border-top: 1px solid var(--border); color: var(--text-medium);">
         <p><%= landlordName %></p>
       </div>
     </aside>
@@ -167,7 +167,7 @@
               </div>
               
               <% if (msg.needs_landlord_attention) { %>
-              <button class="respond-btn" onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || 'Inquilino' %>')">
+                <button class="respond-btn" onclick="replyToTenant('<%= msg.tenants?.phone || '' %>', '<%= msg.tenants?.name || &quot;Inquilino&quot; %>')">
                 Responder
               </button>
               <% } %>

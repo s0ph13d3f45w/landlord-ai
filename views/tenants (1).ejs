@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inquilinos - SuperAdmin AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dashboard-modern.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <h1><span class="logo-icon">🏠</span> SuperAdmin AI</h1>
+      </div>
+      
+      <nav>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="/dashboard" class="nav-link">
+              <span class="nav-icon">📊</span>
+              Panel
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/properties" class="nav-link">
+              <span class="nav-icon">🏢</span>
+              Propiedades
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/tenants" class="nav-link active">
+              <span class="nav-icon">👥</span>
+              Inquilinos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/logout" class="nav-link">
+              <span class="nav-icon">🚪</span>
+              Cerrar Sesión
+            </a>
+          </li>
+        </ul>
+      </nav>
+      
+      <div class="sidebar-footer" style="padding: 1rem 2rem; margin-top: auto; border-top: 1px solid var(--border); color: var(--text-medium);">
+        <p><%= landlordName %></p>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="dashboard-header">
+        <h2>Mis Inquilinos</h2>
+        <p class="header-subtitle">Administra tus inquilinos</p>
+      </header>
+      
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="showAddTenantModal()">
+          <span>➕</span> Agregar Inquilino
+        </button>
+      </div>
+      
+      <div class="tenants-grid">
+        <% if (tenants.length === 0) { %>
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <h3>No hay inquilinos todavía</h3>
+            <p>¡Agrega tu primer inquilino para comenzar!</p>
+          </div>
+        <% } else { %>
+          <% tenants.forEach(tenant => { %>
+            <div class="tenant-card">
+              <div class="tenant-header">
+                <div>
+                  <h4 class="tenant-name"><%= tenant.name %></h4>
+                  <p class="tenant-property">
+                    <span class="tenant-icon">📍</span>
+                    <%= tenant.properties?.address || 'Sin propiedad asignada' %>
+                  </p>
+                </div>
+                <button class="delete-btn" onclick="deleteTenant('<%= tenant.id %>', '<%= tenant.name %>')" title="Eliminar">🗑️</button>
+              </div>
+              
+              <div class="tenant-info">
+                <div class="info-row">
+                  <span class="info-icon">📱</span>
+                  <span><%= tenant.phone %></span>
+                </div>
+                <% if (tenant.properties?.monthly_rent) { %>
+                <div class="info-row">
+                  <span class="info-icon">💰</span>
+                  <span>$<%= tenant.properties.monthly_rent %> MXN/mes</span>
+                </div>
+                <% } %>
+                <% if (tenant.properties?.rent_due_day) { %>
+                <div class="info-row">
+                  <span class="info-icon">📅</span>
+                  <span>Día de pago: <%= tenant.properties.rent_due_day %></span>
+                </div>
+                <% } %>
+                <% if (tenant.move_in_date) { %>
+                <div class="info-row">
+                  <span class="info-icon">🗓️</span>
+                  <span>Desde: <%= new Date(tenant.move_in_date).toLocaleDateString('es-MX') %></span>
+                </div>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add Tenant Modal -->
+  <div id="addTenantModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2>Agregar Nuevo Inquilino</h2>
+      <% if (properties.length === 0) { %>
+        <p style="color: #ef4444; margin-bottom: 1rem;">
+          ⚠️ Primero debes <a href="/dashboard/properties" style="color: var(--green);">agregar una propiedad</a>
+        </p>
+      <% } else { %>
+        <form action="/dashboard/tenants/add" method="POST">
+          <input type="text" name="name" placeholder="Nombre del Inquilino" required>
+          <input type="tel" name="phone" placeholder="WhatsApp (+52...)" required>
+          <select name="property_id" required>
+            <option value="">Seleccionar Propiedad</option>
+            <% properties.forEach(prop => { %>
+              <option value="<%= prop.id %>"><%= prop.address %></option>
+            <% }); %>
+          </select>
+          <input type="date" name="move_in_date" placeholder="Fecha de Entrada">
+          <button type="submit" class="btn btn-primary">Agregar Inquilino</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+  
+  <script>
+    function showAddTenantModal() {
+      document.getElementById('addTenantModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+      document.getElementById('addTenantModal').style.display = 'none';
+    }
+    
+    function deleteTenant(tenantId, tenantName) {
+      if (confirm(`¿Estás seguro que quieres eliminar a ${tenantName}?\n\nEsto también eliminará todos sus mensajes.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/dashboard/tenants/delete/${tenantId}`;
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>

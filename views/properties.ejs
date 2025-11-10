@@ -3,20 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Propiedades - Landlord AI</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>Propiedades - SuperAdmin AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dashboard-modern.css">
 </head>
 <body>
-  <div class="dashboard-layout">
+  <div class="dashboard-container">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <h1>🏠 SuperAdminAI</h1>
+      <div class="logo">
+        <h1><span class="logo-icon">🏠</span> SuperAdmin AI</h1>
+      </div>
+      
       <nav>
-        <a href="/dashboard">Panel</a>
-        <a href="/dashboard/properties" class="active">Propiedades</a>
-        <a href="/logout">Cerrar Sesión</a>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="/dashboard" class="nav-link">
+              <span class="nav-icon">📊</span>
+              Panel
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/properties" class="nav-link active">
+              <span class="nav-icon">🏢</span>
+              Propiedades
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/dashboard/tenants" class="nav-link">
+              <span class="nav-icon">👥</span>
+              Inquilinos
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/logout" class="nav-link">
+              <span class="nav-icon">🚪</span>
+              Cerrar Sesión
+            </a>
+          </li>
+        </ul>
       </nav>
-      <div class="sidebar-footer">
+      
+      <div class="sidebar-footer" style="padding: 1rem 2rem; margin-top: auto; border-top: 1px solid var(--border); color: var(--text-medium);">
         <p><%= landlordName %></p>
       </div>
     </aside>
@@ -25,23 +53,47 @@
     <main class="main-content">
       <header class="dashboard-header">
         <h2>Mis Propiedades</h2>
-        <button onclick="showAddPropertyModal()" class="btn-primary">+ Agregar Propiedad</button>
+        <p class="header-subtitle">Administra tus propiedades</p>
       </header>
       
-      <div class="properties-grid">
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="showAddPropertyModal()">
+          <span>➕</span> Agregar Propiedad
+        </button>
+      </div>
+      
+      <div class="tenants-grid">
         <% if (properties.length === 0) { %>
           <div class="empty-state">
-            <p>No hay propiedades todavía. ¡Agrega tu primera propiedad para comenzar!</p>
+            <div class="empty-icon">🏢</div>
+            <h3>No hay propiedades todavía</h3>
+            <p>¡Agrega tu primera propiedad para comenzar!</p>
           </div>
         <% } else { %>
           <% properties.forEach(prop => { %>
-            <div class="property-card">
-              <h3><%= prop.address %></h3>
-              <p class="property-rent">$<%= prop.monthly_rent %> MXN/mes</p>
-              <p>Renta vence: Día <%= prop.rent_due_day %></p>
-              <% if (prop.special_instructions) { %>
-                <p class="property-notes"><%= prop.special_instructions %></p>
-              <% } %>
+            <div class="tenant-card">
+              <div class="tenant-header">
+                <div>
+                  <h4 class="tenant-name"><%= prop.address %></h4>
+                  <p class="tenant-property">
+                    <span class="tenant-icon">💰</span>
+                    $<%= prop.monthly_rent %> MXN/mes
+                  </p>
+                </div>
+              </div>
+              
+              <div class="tenant-info">
+                <div class="info-row">
+                  <span class="info-icon">📅</span>
+                  <span>Renta vence: Día <%= prop.rent_due_day %></span>
+                </div>
+                <% if (prop.special_instructions) { %>
+                <div class="info-row">
+                  <span class="info-icon">📝</span>
+                  <span><%= prop.special_instructions %></span>
+                </div>
+                <% } %>
+              </div>
             </div>
           <% }); %>
         <% } %>
@@ -59,7 +111,7 @@
         <input type="number" name="monthly_rent" placeholder="Renta Mensual (MXN)" required>
         <input type="number" name="rent_due_day" placeholder="Día de Vencimiento (1-31)" min="1" max="31" required>
         <textarea name="special_instructions" placeholder="Instrucciones Especiales (opcional)" rows="3"></textarea>
-        <button type="submit" class="btn-primary">Agregar Propiedad</button>
+        <button type="submit" class="btn btn-primary">Agregar Propiedad</button>
       </form>
     </div>
   </div>
