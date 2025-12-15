@@ -1,13 +1,18 @@
 {
   "name": "landlord-ai",
   "version": "1.0.0",
+  "description": "AI-powered WhatsApp landlord assistant",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
+  "keywords": ["landlord", "ai", "whatsapp", "property-management"],
+  "author": "Sophie",
+  "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "bcrypt": "^6.0.0",
+    "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.1",

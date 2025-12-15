@@ -52,38 +52,94 @@ app.get('/', (req, res) => {
   req.session.landlordId ? res.redirect('/dashboard') : res.redirect('/login');
 });
 
-// WhatsApp Webhook
+// WhatsApp Webhook - DEBUGGED VERSION
 app.post('/webhook/whatsapp', async (req, res) => {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📥 WEBHOOK RECEIVED');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('Full request body:', JSON.stringify(req.body, null, 2));
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  
   try {
     const message = req.body.Body;
     const phone = req.body.From?.replace('whatsapp:', '');
     
+    console.log('📱 Extracted Message:', message);
+    console.log('📞 Extracted Phone:', phone);
+    
     if (!message || !phone) {
+      console.log('❌ VALIDATION FAILED: Missing message or phone');
       const twiml = new twilio.twiml.MessagingResponse();
-      twiml.message('Error');
+      twiml.message('Error: mensaje o teléfono faltante');
+      console.log('📤 Sending error response');
       return res.type('text/xml').send(twiml.toString());
     }
     
-    // Find tenant
+    // Find tenant - try multiple phone formats
+    console.log('\n🔍 SEARCHING FOR TENANT');
+    console.log('Original phone:', phone);
+    
+    const phoneVariations = [
+      phone,
+      phone.replace('+52', ''),
+      '+52' + phone.replace(/^\+?52/, ''),
+      phone.replace(/\D/g, ''), // Remove all non-digits
+      '+' + phone.replace(/\D/g, '') // Add + to digits only
+    ];
+    
+    console.log('Phone variations to try:', phoneVariations);
+    
     let tenant = null;
-    for (const p of [phone, phone.replace('+52', ''), '+52' + phone.replace(/^\+?52/, '')]) {
-      const { data } = await supabase.from('tenants').select('*, properties (*)').eq('phone', p).single();
-      if (data) { tenant = data; break; }
+    for (const p of phoneVariations) {
+      console.log(`  Trying phone format: "${p}"`);
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('*, properties (*)')
+        .eq('phone', p)
+        .single();
+      
+      if (error) {
+        console.log(`    ❌ Error: ${error.message}`);
+      }
+      if (data) { 
+        tenant = data; 
+        console.log(`    ✅ FOUND! Tenant: ${tenant.name}`);
+        break; 
+      } else {
+        console.log(`    ⚠️  No match`);
+      }
     }
     
     if (!tenant) {
+      console.log('\n❌ TENANT NOT FOUND');
+      console.log('💡 Fetching all tenants from database to debug...\n');
+      
+      const { data: allTenants } = await supabase
+        .from('tenants')
+        .select('name, phone');
+      
+      console.log('All tenants in database:');
+      allTenants?.forEach(t => console.log(`  - ${t.name}: "${t.phone}"`));
+      
       const twiml = new twilio.twiml.MessagingResponse();
       twiml.message('Disculpa, no encuentro tu número registrado. Por favor contacta a tu casero.');
+      console.log('\n📤 Sending "not found" response');
       return res.type('text/xml').send(twiml.toString());
     }
     
+    console.log('\n✅ TENANT FOUND:', {
+      name: tenant.name,
+      phone: tenant.phone,
+      property: tenant.properties?.address
+    });
+    
     // Get AI response
+    console.log('\n🤖 GENERATING AI RESPONSE');
     let aiReply = 'Recibí tu mensaje, te respondo en breve.';
     let needsAttention = true;
     let category = 'CONSULTA';
     
     try {
-      // ✅ IMPROVED PROMPT - Conversational, Assertive, Polite, Diplomatic, Informal
       const prompt = `Eres un asistente de administración de propiedades profesional pero cercano. Tu objetivo es resolver problemas de manera eficiente y diplomática.
 
 TONO Y ESTILO:
@@ -92,14 +148,6 @@ TONO Y ESTILO:
 - Diplomático - manejas situaciones delicadas con tacto
 - Informal pero respetuoso - tuteas pero mantienes cortesía
 - Sin jerga excesiva - usa español natural y claro
-
-REGLAS DE COMUNICACIÓN:
-1. Sé directo con las soluciones - no digas "déjame revisar" si ya tienes la información
-2. Usa un lenguaje profesional pero accesible
-3. Sé empático pero asertivo - reconoce el problema y ofrece la solución
-4. Si es algo que necesita escalarse, explica claramente los próximos pasos
-5. Mantén respuestas de 2-3 oraciones máximo
-6. Usa puntuación adecuada (puntos, comas) - no uses muchos signos de exclamación
 
 INFORMACIÓN DE LA PROPIEDAD:
 Inquilino: ${tenant.name}
@@ -111,49 +159,10 @@ Notas especiales: ${tenant.properties?.special_instructions || 'Sin instruccione
 
 MENSAJE DEL INQUILINO: "${message}"
 
-EJEMPLOS DE RESPUESTAS APROPIADAS:
-
-Usuario: "puedo tener mascotas?"
-✅ BIEN: "Claro que sí. Puedes tener mascotas pequeñas sin problema. Solo recuerda mantener todo limpio."
-❌ MAL: "siii claro!! no hay bronca compa!!" (demasiado informal)
-
-Usuario: "cuando tengo que pagar?"
-✅ BIEN: "Tu pago vence el día ${tenant.properties?.rent_due_day || '1'} de cada mes. El monto es de $${tenant.properties?.monthly_rent || '30,000'} MXN."
-❌ MAL: "Nel we, el día que sea" (no profesional)
-
-Usuario: "hay una fuga de agua en el baño"
-✅ BIEN: "Entendido, ya estoy contactando al plomero. Dame un momento y te confirmo."
-❌ MAL: "ay no que mal!! ahorita lo veo" (poco profesional)
-
-Usuario: "el vecino hace mucho ruido"
-✅ BIEN: "Comprendo la situación. Te recomiendo primero hablar directamente con tu vecino de manera cordial. Si el problema persiste, házmelo saber y yo hablo con el propietario para tomar medidas."
-❌ MAL: "pues dile algo tu we" (poco diplomático)
-
-Usuario: "se puede fumar adentro?"
-✅ BIEN: "No está permitido fumar dentro del departamento. Sin embargo, puedes hacerlo en el balcón o áreas externas."
-❌ MAL: "no we ni madres" (poco profesional)
-
-Usuario: "puedo pintar las paredes?"
-✅ BIEN: "Puedes pintar con colores neutros (blanco, beige, gris claro). Al finalizar tu contrato, deberás dejarlo en el color original. ¿Tienes algún color específico en mente?"
-❌ MAL: "a ver djm revisar con el dueño y te digo" (evitable con la info disponible)
-
-CATEGORIZACIÓN Y ESCALAMIENTO:
-
-Marca needsAttention: TRUE para:
-- URGENCIAS: fugas grandes, problemas eléctricos, gas, robos, daños estructurales
-- REPARACIONES: electrodomésticos descompuestos, problemas de plomería/electricidad
-- CONFLICTOS: problemas graves con vecinos o situaciones delicadas
-- PERMISOS MAYORES: renovaciones, cambios estructurales, mascotas grandes
-
-Marca needsAttention: FALSE para:
-- Preguntas sobre PAGOS, FECHAS, o INFORMACIÓN GENERAL
-- Preguntas sobre REGLAS de la propiedad que puedes responder con la información disponible
-- CONSULTAS simples que no requieren intervención del propietario
-- Solicitudes que puedes manejar directamente (información, aclaraciones)
-
 Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
 {"message":"tu respuesta conversacional, asertiva y diplomática","category":"URGENTE|MANTENIMIENTO|PAGO|CONSULTA","needsAttention":true/false}`;
 
+      console.log('Calling OpenAI...');
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -172,8 +181,15 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
       needsAttention = parsed.needsAttention;
       category = parsed.category;
       
+      console.log('✅ AI Response generated:', {
+        category,
+        needsAttention,
+        reply: aiReply.substring(0, 50) + '...'
+      });
+      
     } catch (e) {
-      console.error('AI error:', e);
+      console.log('❌ AI Error:', e.message);
+      console.log('Using fallback response');
       
       // Professional fallback responses
       const lower = message.toLowerCase();
@@ -186,22 +202,6 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
         aiReply = 'Entendido, es urgente. Ya estoy contactando al técnico correspondiente.';
         needsAttention = true;
         category = 'URGENTE';
-      } else if (lower.includes('mascota') || lower.includes('perro') || lower.includes('gato')) {
-        aiReply = 'Sí puedes tener mascotas pequeñas. Solo asegúrate de mantener todo limpio y en buen estado.';
-        needsAttention = false;
-        category = 'CONSULTA';
-      } else if (lower.includes('reparar') || lower.includes('arreglar') || lower.includes('roto') || lower.includes('descompuesto')) {
-        aiReply = 'Perfecto, ya lo reporté. Déjame contactar al técnico y te confirmo el horario.';
-        needsAttention = true;
-        category = 'MANTENIMIENTO';
-      } else if (lower.includes('fumar') || lower.includes('cigarro')) {
-        aiReply = 'No está permitido fumar dentro del departamento, pero puedes hacerlo en el balcón o áreas externas.';
-        needsAttention = false;
-        category = 'CONSULTA';
-      } else if (lower.includes('ruido') || lower.includes('vecino')) {
-        aiReply = 'Te recomiendo hablar primero con tu vecino de manera cordial. Si el problema continúa, házmelo saber para escalar la situación.';
-        needsAttention = false;
-        category = 'CONSULTA';
       } else {
         aiReply = 'Recibí tu mensaje. ¿Podrías darme más detalles para ayudarte mejor?';
         needsAttention = false;
@@ -210,7 +210,8 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
     }
     
     // Save incoming message
-    await supabase.from('messages').insert({
+    console.log('\n💾 SAVING MESSAGE TO DATABASE');
+    const { error: dbError } = await supabase.from('messages').insert({
       tenant_id: tenant.id,
       direction: 'incoming',
       message_body: message,
@@ -219,59 +220,56 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
       needs_landlord_attention: needsAttention
     });
     
-    // Send normal conversational reply to tenant
+    if (dbError) {
+      console.log('❌ Database save error:', dbError);
+    } else {
+      console.log('✅ Message saved');
+    }
+    
+    // Send reply to tenant
+    console.log('\n📤 SENDING TWIML RESPONSE');
+    console.log('Response:', aiReply);
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(aiReply);
-    res.type('text/xml').send(twiml.toString());
+    const twimlString = twiml.toString();
+    console.log('TwiML:', twimlString);
     
-    // Send realistic follow-up message for urgent issues (10 seconds later)
+    res.type('text/xml').send(twimlString);
+    console.log('✅ Response sent successfully\n');
+    
+    // Send follow-up for urgent issues
     if (needsAttention) {
+      console.log('⏱️  Scheduling follow-up message in 10 seconds...');
       setTimeout(async () => {
         try {
-          // Generate realistic follow-up based on category
           let followUpMessage = '';
+          const lower = message.toLowerCase();
+          let professional = 'el técnico';
+          let professionalName = 'Rosendo';
+          let timeSlot = '10:00 am';
+          
+          if (lower.includes('fuga') || lower.includes('agua') || lower.includes('tubería') || lower.includes('baño')) {
+            professional = 'el plomero';
+            professionalName = 'Rosendo';
+            timeSlot = '10:00 am';
+          } else if (lower.includes('luz') || lower.includes('eléctric')) {
+            professional = 'el electricista';
+            professionalName = 'Miguel';
+            timeSlot = '2:00 pm';
+          }
           
           if (category === 'URGENTE' || category === 'MANTENIMIENTO') {
-            // Get appropriate professional based on the issue
-            const lower = message.toLowerCase();
-            let professional = 'el técnico';
-            let professionalName = 'Rosendo';
-            let timeSlot = '10:00 am';
-            
-            if (lower.includes('fuga') || lower.includes('agua') || lower.includes('tubería') || lower.includes('baño')) {
-              professional = 'el plomero';
-              professionalName = 'Rosendo';
-              timeSlot = '10:00 am';
-            } else if (lower.includes('luz') || lower.includes('eléctric') || lower.includes('corriente') || lower.includes('apagón')) {
-              professional = 'el electricista';
-              professionalName = 'Miguel';
-              timeSlot = '2:00 pm';
-            } else if (lower.includes('gas')) {
-              professional = 'el técnico de gas';
-              professionalName = 'Carlos';
-              timeSlot = '11:30 am';
-            } else if (lower.includes('clima') || lower.includes('aire') || lower.includes('calefacción')) {
-              professional = 'el técnico de clima';
-              professionalName = 'Javier';
-              timeSlot = '3:00 pm';
-            } else if (lower.includes('puerta') || lower.includes('cerradura') || lower.includes('llave')) {
-              professional = 'el cerrajero';
-              professionalName = 'Antonio';
-              timeSlot = '1:00 pm';
-            }
-            
             followUpMessage = `Listo, ya hablé con ${professional}. Está disponible a las ${timeSlot} y pasará a revisar. Su nombre es ${professionalName}. Me cuentas cómo va todo, y no te preocupes, yo me encargo de pagarle.`;
           }
           
           if (followUpMessage) {
-            // Send follow-up to tenant
+            console.log('📤 Sending follow-up:', followUpMessage);
             await twilioClient.messages.create({
               from: process.env.TWILIO_WHATSAPP_NUMBER,
               to: `whatsapp:${phone}`,
               body: followUpMessage
             });
             
-            // Save follow-up message to database
             await supabase.from('messages').insert({
               tenant_id: tenant.id,
               direction: 'outgoing',
@@ -280,19 +278,27 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
               ai_response: null,
               needs_landlord_attention: false
             });
+            console.log('✅ Follow-up sent');
           }
         } catch (e) {
-          console.error('Error sending follow-up:', e);
+          console.error('❌ Error sending follow-up:', e);
         }
-      }, 10000); // 10 seconds delay
+      }, 10000);
     }
     
   } catch (e) {
-    console.error('Webhook error:', e);
+    console.error('\n❌❌❌ WEBHOOK ERROR ❌❌❌');
+    console.error('Error:', e);
+    console.error('Stack:', e.stack);
+    
     const twiml = new twilio.twiml.MessagingResponse();
     twiml.message('Disculpa, hubo un error. Por favor intenta de nuevo en un momento.');
     res.type('text/xml').send(twiml.toString());
   }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('🚀 Server running')); 
+app.listen(process.env.PORT || 3000, () => {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🚀 SERVER RUNNING ON PORT', process.env.PORT || 3000);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+});
