@@ -122,7 +122,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
       allTenants?.forEach(t => console.log(`  - ${t.name}: "${t.phone}"`));
       
       const twiml = new twilio.twiml.MessagingResponse();
-      twiml.message('Disculpa, no encuentro tu número registrado. Por favor contacta a tu casero.');
+      twiml.message('Disculpa, no encuentro tu número registrado. Por favor contacta a tu propietario.');
       console.log('\n📤 Sending "not found" response');
       return res.type('text/xml').send(twiml.toString());
     }
@@ -135,32 +135,64 @@ app.post('/webhook/whatsapp', async (req, res) => {
     
     // Get AI response
     console.log('\n🤖 GENERATING AI RESPONSE');
-    let aiReply = 'Recibí tu mensaje, te respondo en breve.';
+    let aiReply = '¡Hola! Recibí tu mensaje y lo estoy revisando. Te respondo en un momento.';
     let needsAttention = true;
     let category = 'CONSULTA';
     
     try {
-      const prompt = `Eres un asistente de administración de propiedades profesional pero cercano. Tu objetivo es resolver problemas de manera eficiente y diplomática.
+      const prompt = `Eres un asistente de administración de propiedades cálido y empático. Realmente te importan tus inquilinos y quieres que se sientan escuchados y apoyados.
 
-TONO Y ESTILO:
-- Conversacional pero profesional - hablas como un administrador experimentado y confiable
-- Asertivo y claro - das respuestas directas sin rodeos innecesarios
-- Diplomático - manejas situaciones delicadas con tacto
-- Informal pero respetuoso - tuteas pero mantienes cortesía
-- Sin jerga excesiva - usa español natural y claro
+ESTILO DE COMUNICACIÓN:
+- EMPÁTICO PRIMERO: Siempre reconoce sus sentimientos y preocupaciones antes de ofrecer soluciones
+- CONVERSACIONAL: Habla naturalmente, como un amigo útil que gestiona su propiedad
+- CONSCIENTE DEL CONTEXTO: Recuerda lo que están diciendo y responde coherentemente a su situación específica
+- CÁLIDO pero PROFESIONAL: Sé amigable y cariñoso mientras mantienes profesionalismo
+- CLARO Y DIRECTO: Da información específica y accionable cuando la tengas
+- SIN LENGUAJE CORPORATIVO: Evita frases como "entiendo su preocupación" - en su lugar, muestra empatía genuina
 
 INFORMACIÓN DE LA PROPIEDAD:
 Inquilino: ${tenant.name}
 Dirección: ${tenant.properties?.address || 'la propiedad'}
 Renta mensual: $${tenant.properties?.monthly_rent || 'N/A'} MXN
-Día de pago: ${tenant.properties?.rent_due_day || 'N/A'}
+Vencimiento de pago: Día ${tenant.properties?.rent_due_day || 'N/A'} de cada mes
 Propietario: ${tenant.properties?.landlord_name || 'el propietario'}
-Notas especiales: ${tenant.properties?.special_instructions || 'Sin instrucciones especiales'}
+Notas especiales: ${tenant.properties?.special_instructions || 'Ninguna'}
 
 MENSAJE DEL INQUILINO: "${message}"
 
-Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
-{"message":"tu respuesta conversacional, asertiva y diplomática","category":"URGENTE|MANTENIMIENTO|PAGO|CONSULTA","needsAttention":true/false}`;
+GUÍAS DE RESPUESTA:
+1. Si reportan un problema: Muestra que entiendes lo frustrante/estresante que es, luego explica los siguientes pasos
+2. Si hacen una pregunta: Responde directamente con la info que tienes, sé específico
+3. Si están haciendo seguimiento: Referencia lo que dijeron antes y continúa esa conversación naturalmente
+4. Si es urgente: Mantén la calma pero muestra que lo tomas en serio y actuarás rápido
+5. Si necesitas más info: Haz preguntas específicas y útiles
+
+EJEMPLOS DE BUENAS RESPUESTAS EMPÁTICAS:
+
+Usuario: "Hay una fuga en mi baño"
+✅ BIEN: "Ay no, una fuga en el baño es súper estresante. Lamento mucho que estés pasando por esto. Voy a conseguir que alguien vaya lo antes posible a arreglarlo. ¿Me puedes decir más o menos qué tan grave es? ¿Está goteando o se está acumulando agua?"
+❌ MAL: "Entiendo su preocupación. Escalaré este problema al equipo de mantenimiento."
+
+Usuario: "¿Cuándo vence la renta?"
+✅ BIEN: "Tu renta vence el día ${tenant.properties?.rent_due_day || '1'} de cada mes - $${tenant.properties?.monthly_rent || '30,000'} MXN. ¿Te funciona bien este mes?"
+❌ MAL: "Por favor consulte su contrato de arrendamiento para detalles de pago."
+
+Usuario: "El calentador no funciona y hace un frío horrible"
+✅ BIEN: "Qué horrible, especialmente con este clima - tener frío en tu propia casa es lo peor. Esto es definitivamente una prioridad. Voy a contactar a alguien ahora mismo para que lo arregle hoy. Mientras tanto, ¿tienes un calentador portátil o cobijas extra?"
+❌ MAL: "Reparación de calentador anotada. Un técnico será programado."
+
+Usuario: "¿Puedo tener amigos?"
+✅ BIEN: "¡Claro que sí! Es tu casa, puedes tener amigos cuando quieras. Solo mantén el ruido razonable después de las 10pm por tus vecinos. ¿Estás planeando algo divertido?"
+❌ MAL: "Los visitantes están permitidos de acuerdo con las regulaciones del edificio."
+
+Usuario: "¡Muchas gracias!"
+✅ BIEN: "¡De nada! Estoy aquí cuando necesites cualquier cosa."
+❌ MAL: "De nada. ¿Hay algo más en lo que pueda asistirle hoy?"
+
+CRÍTICO: Mantén las respuestas naturales y conversacionales. Estás teniendo una conversación real con una persona real que vive en esta propiedad.
+
+Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extra):
+{"message":"tu respuesta cálida, empática y conversacional","category":"URGENTE|MANTENIMIENTO|PAGO|CONSULTA","needsAttention":true/false}`;
 
       console.log('Calling OpenAI...');
       const completion = await openai.chat.completions.create({
@@ -168,7 +200,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
         messages: [
           { 
             role: 'system', 
-            content: 'Eres un asistente profesional de administración de propiedades. Respondes de manera conversacional, asertiva, diplomática e informal pero siempre profesional. Usas español natural de México.' 
+            content: 'Eres un asistente de administración de propiedades cálido y empático que realmente se preocupa por los inquilinos. Respondes de manera natural y conversacional - como un amigo útil. Reconoces sentimientos, muestras comprensión y brindas apoyo claro y cariñoso. Nunca suenas robótico o corporativo. Siempre hablas en español.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -191,19 +223,27 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
       console.log('❌ AI Error:', e.message);
       console.log('Using fallback response');
       
-      // Professional fallback responses
+      // Respuestas empáticas de respaldo
       const lower = message.toLowerCase();
       
-      if (lower.includes('pago') || lower.includes('pagar') || lower.includes('renta') || lower.includes('cuanto')) {
-        aiReply = `Tu pago vence el día ${tenant.properties?.rent_due_day || '1'} de cada mes. El monto es de $${tenant.properties?.monthly_rent || '30,000'} MXN.`;
+      if (lower.includes('pago') || lower.includes('pagar') || lower.includes('renta') || lower.includes('cuanto') || lower.includes('payment') || lower.includes('pay') || lower.includes('rent') || lower.includes('how much') || lower.includes('due') || lower.includes('vence')) {
+        aiReply = `Tu renta es de $${tenant.properties?.monthly_rent || '30,000'} MXN y vence el día ${tenant.properties?.rent_due_day || '1'} de cada mes. ¿Te funciona bien ese día?`;
         needsAttention = false;
         category = 'PAGO';
-      } else if (lower.includes('fuga') || lower.includes('emergencia') || lower.includes('incendio') || lower.includes('gas')) {
-        aiReply = 'Entendido, es urgente. Ya estoy contactando al técnico correspondiente.';
+      } else if (lower.includes('fuga') || lower.includes('emergencia') || lower.includes('incendio') || lower.includes('gas') || lower.includes('leak') || lower.includes('emergency') || lower.includes('fire') || lower.includes('flooding') || lower.includes('urgent') || lower.includes('inundación')) {
+        aiReply = 'Ay no, eso suena muy estresante. Me tomo esto en serio y me aseguraré de que alguien vaya lo antes posible. ¿Me puedes contar un poco más sobre qué está pasando?';
         needsAttention = true;
         category = 'URGENTE';
+      } else if (lower.includes('roto') || lower.includes('no funciona') || lower.includes('arreglar') || lower.includes('reparar') || lower.includes('mantenimiento') || lower.includes('broken') || lower.includes('fix') || lower.includes('repair')) {
+        aiReply = 'Lamento que no esté funcionando bien - es súper frustrante. Déjame ayudarte a arreglar esto. ¿Me puedes describir qué está pasando?';
+        needsAttention = true;
+        category = 'MANTENIMIENTO';
+      } else if (lower.includes('gracias') || lower.includes('thank') || lower.includes('thanks') || lower.includes('appreciate')) {
+        aiReply = '¡De nada! Estoy aquí cuando necesites cualquier cosa.';
+        needsAttention = false;
+        category = 'CONSULTA';
       } else {
-        aiReply = 'Recibí tu mensaje. ¿Podrías darme más detalles para ayudarte mejor?';
+        aiReply = '¡Hola! Recibí tu mensaje. ¿Me podrías contar un poco más para poder ayudarte?';
         needsAttention = false;
         category = 'CONSULTA';
       }
@@ -236,55 +276,6 @@ Responde ÚNICAMENTE con un objeto JSON (sin markdown, sin comillas extras):
     
     res.type('text/xml').send(twimlString);
     console.log('✅ Response sent successfully\n');
-    
-    // Send follow-up for urgent issues
-    if (needsAttention) {
-      console.log('⏱️  Scheduling follow-up message in 10 seconds...');
-      setTimeout(async () => {
-        try {
-          let followUpMessage = '';
-          const lower = message.toLowerCase();
-          let professional = 'el técnico';
-          let professionalName = 'Rosendo';
-          let timeSlot = '10:00 am';
-          
-          if (lower.includes('fuga') || lower.includes('agua') || lower.includes('tubería') || lower.includes('baño')) {
-            professional = 'el plomero';
-            professionalName = 'Rosendo';
-            timeSlot = '10:00 am';
-          } else if (lower.includes('luz') || lower.includes('eléctric')) {
-            professional = 'el electricista';
-            professionalName = 'Miguel';
-            timeSlot = '2:00 pm';
-          }
-          
-          if (category === 'URGENTE' || category === 'MANTENIMIENTO') {
-            followUpMessage = `Listo, ya hablé con ${professional}. Está disponible a las ${timeSlot} y pasará a revisar. Su nombre es ${professionalName}. Me cuentas cómo va todo, y no te preocupes, yo me encargo de pagarle.`;
-          }
-          
-          if (followUpMessage) {
-            console.log('📤 Sending follow-up:', followUpMessage);
-            await twilioClient.messages.create({
-              from: process.env.TWILIO_WHATSAPP_NUMBER,
-              to: `whatsapp:${phone}`,
-              body: followUpMessage
-            });
-            
-            await supabase.from('messages').insert({
-              tenant_id: tenant.id,
-              direction: 'outgoing',
-              message_body: followUpMessage,
-              category: category,
-              ai_response: null,
-              needs_landlord_attention: false
-            });
-            console.log('✅ Follow-up sent');
-          }
-        } catch (e) {
-          console.error('❌ Error sending follow-up:', e);
-        }
-      }, 10000);
-    }
     
   } catch (e) {
     console.error('\n❌❌❌ WEBHOOK ERROR ❌❌❌');
