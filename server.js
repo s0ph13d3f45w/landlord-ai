@@ -400,55 +400,6 @@ Respond ONLY with a JSON object (no markdown):
     res.type('text/xml').send(twimlString);
     console.log('✅ Response sent successfully\n');
     
-    // Send follow-up for urgent issues
-    if (needsAttention) {
-      console.log('⏱️  Scheduling follow-up message in 10 seconds...');
-      setTimeout(async () => {
-        try {
-          let followUpMessage = '';
-          const lower = message.toLowerCase();
-          let professional = 'the technician';
-          let professionalName = 'Rosendo';
-          let timeSlot = '10:00 am';
-          
-          if (lower.includes('fuga') || lower.includes('agua') || lower.includes('tubería') || lower.includes('baño') || lower.includes('leak') || lower.includes('water') || lower.includes('pipe') || lower.includes('bathroom')) {
-            professional = 'the plumber';
-            professionalName = 'Rosendo';
-            timeSlot = '10:00 am';
-          } else if (lower.includes('luz') || lower.includes('eléctric') || lower.includes('light') || lower.includes('electric') || lower.includes('power')) {
-            professional = 'the electrician';
-            professionalName = 'Miguel';
-            timeSlot = '2:00 pm';
-          }
-          
-          if (category === 'URGENT' || category === 'MAINTENANCE') {
-            followUpMessage = `All set, I spoke with ${professional}. He's available at ${timeSlot} and will come by to check it out. His name is ${professionalName}. Let me know how it goes, and don't worry, I'll take care of paying him.`;
-          }
-          
-          if (followUpMessage) {
-            console.log('📤 Sending follow-up:', followUpMessage);
-            await twilioClient.messages.create({
-              from: process.env.TWILIO_WHATSAPP_NUMBER,
-              to: `whatsapp:${phone}`,
-              body: followUpMessage
-            });
-            
-            await supabase.from('messages').insert({
-              tenant_id: tenant.id,
-              direction: 'outgoing',
-              message_body: followUpMessage,
-              category: category,
-              ai_response: null,
-              needs_landlord_attention: false
-            });
-            console.log('✅ Follow-up sent');
-          }
-        } catch (e) {
-          console.error('❌ Error sending follow-up:', e);
-        }
-      }, 10000);
-    }
-    
   } catch (e) {
     console.error('\n❌❌❌ WEBHOOK ERROR ❌❌❌');
     console.error('Error:', e);
